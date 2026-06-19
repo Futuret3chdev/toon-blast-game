@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/style.css?v=12">
+  <link rel="stylesheet" href="/css/style.css?v=13">
 </head>
 <body>
   <div id="app">
@@ -39,53 +39,26 @@
         </div>
       </header>
       <div class="menu-content">
-        <div class="menu-hero">
-          <h1 class="menu-title">MTE POP</h1>
-          <p class="tagline">Tap matching blocks to pop!</p>
+        <h1 class="menu-title">MTE POP</h1>
+        <p class="tagline">Tap matching blocks to pop!</p>
+
+        <button id="play-btn" class="btn-primary" type="button">Play Level <span id="menu-level">1</span></button>
+        <button id="level-select-btn" class="btn-secondary" type="button">Level Map</button>
+        <button id="shop-btn" class="btn-secondary" type="button">Shop</button>
+        <button id="settings-btn" class="btn-secondary" type="button">Settings</button>
+
+        <div class="menu-stats">
+          <div class="stat"><span class="stat-label">Stars</span><span id="total-stars" class="stat-value">0</span></div>
+          <div class="stat"><span class="stat-label">Level</span><span id="max-level" class="stat-value">1</span></div>
+          <div class="stat"><span class="stat-label">Coins</span><span id="menu-coins" class="stat-value">500</span></div>
         </div>
 
-        <div class="menu-panel">
-          <button id="play-btn" class="btn-primary btn-menu-main" type="button">
-            <span class="btn-label">Play Level</span>
-            <span id="menu-level" class="btn-badge">1</span>
-          </button>
-          <div class="menu-nav">
-            <button id="level-select-btn" class="btn-nav" type="button">
-              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg>
-              <span>Map</span>
-            </button>
-            <button id="shop-btn" class="btn-nav" type="button">
-              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6h15l-1.5 9H7.5L6 6z"/><circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/><path d="M6 6 5 3H2"/></svg>
-              <span>Shop</span>
-            </button>
-            <button id="settings-btn" class="btn-nav" type="button">
-              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32 1.41-1.41"/></svg>
-              <span>Settings</span>
-            </button>
-          </div>
+        <div class="brand-panel">
+          <footer class="brand-footer">
+            <span class="brand-ecosystem">MTECOSYSTEM</span>
+            <span class="brand-credits">MADE BY FUTURET3CH AND MEMETORRENT</span>
+          </footer>
         </div>
-
-        <div class="menu-stats-card">
-          <div class="stat">
-            <span class="stat-label">Stars</span>
-            <span id="total-stars" class="stat-value">0</span>
-          </div>
-          <div class="stat-divider" aria-hidden="true"></div>
-          <div class="stat">
-            <span class="stat-label">Level</span>
-            <span id="max-level" class="stat-value">1</span>
-          </div>
-          <div class="stat-divider" aria-hidden="true"></div>
-          <div class="stat">
-            <span class="stat-label">Coins</span>
-            <span id="menu-coins" class="stat-value">500</span>
-          </div>
-        </div>
-
-        <footer class="brand-panel">
-          <span class="brand-ecosystem">MTECOSYSTEM</span>
-          <span class="brand-credits">MADE BY FUTURET3CH AND MEMETORRENT</span>
-        </footer>
       </div>
     </div>
 
@@ -239,14 +212,14 @@
     <div id="toast" class="toast hidden"></div>
   </div>
 
-  <script src="/js/config.js?v=12"></script>
-  <script src="/js/levels.js?v=12"></script>
-  <script src="/js/oauth.js?v=12"></script>
-  <script src="/js/auth.js?v=12"></script>
-  <script src="/js/audio.js?v=12"></script>
-  <script src="/js/particles.js?v=12"></script>
-  <script src="/js/board.js?v=12"></script>
-  <script src="/js/pwa.js?v=12"></script>
-  <script src="/js/game.js?v=12"></script>
+  <script src="/js/config.js?v=13"></script>
+  <script src="/js/levels.js?v=13"></script>
+  <script src="/js/oauth.js?v=13"></script>
+  <script src="/js/auth.js?v=13"></script>
+  <script src="/js/audio.js?v=13"></script>
+  <script src="/js/particles.js?v=13"></script>
+  <script src="/js/board.js?v=13"></script>
+  <script src="/js/pwa.js?v=13"></script>
+  <script src="/js/game.js?v=13"></script>
 </body>
 </html>
