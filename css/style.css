@@ -139,6 +139,15 @@ body {
   margin-bottom: 1rem;
 }
 
+.menu-title {
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: #fff;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  text-shadow: 1px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
 .btn-primary, .btn-secondary {
   font-family: 'Fredoka', sans-serif;
   font-size: 1.2rem;
@@ -450,8 +459,12 @@ body {
   display: flex;
   justify-content: center;
   gap: 0.8rem;
-  padding: 0.5rem 1rem;
+  padding: 0.4rem 1rem 0.5rem;
   flex-shrink: 0;
+  position: relative;
+  z-index: 5;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .inv-btn {
@@ -853,6 +866,12 @@ body {
 /* ── Game HUD ── */
 #game-screen {
   touch-action: manipulation;
+}
+
+#game-screen.active {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .game-hud {
@@ -1285,7 +1304,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  z-index: 400;
   backdrop-filter: blur(4px);
 }
 
@@ -1384,17 +1403,17 @@ body {
   #game-screen.active {
     display: grid;
     grid-template-columns: 1fr auto;
-    grid-template-rows: auto 1fr auto auto;
+    grid-template-rows: auto auto 1fr auto;
     grid-template-areas:
       "hud hud"
+      "inventory inventory"
       "board goals"
-      "board inventory"
       "score score";
   }
   #game-screen .game-hud { grid-area: hud; }
+  #game-screen .inventory-bar { grid-area: inventory; flex-direction: row; padding: 0.35rem 0.5rem; gap: 0.5rem; }
   #game-screen .goals-panel { grid-area: goals; flex-direction: column; align-self: center; padding: 0.5rem; }
-  #game-screen .board-wrapper { grid-area: board; padding: 0.25rem; }
-  #game-screen .inventory-bar { grid-area: inventory; flex-direction: column; padding: 0.5rem; gap: 0.5rem; }
+  #game-screen .board-wrapper { grid-area: board; padding: 0.25rem; min-height: 0; }
   #game-screen .score-display { grid-area: score; }
   .modal-content { max-height: 90dvh; overflow-y: auto; }
 }
