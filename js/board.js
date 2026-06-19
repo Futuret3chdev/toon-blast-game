@@ -127,11 +127,15 @@ class GameBoard {
     const toDestroy = [...match];
 
     for (const { row, col } of toDestroy) {
-      const key = `${row},${col}`;
-      if (destroyed.has(key)) continue;
-      destroyed.add(key);
+      destroyed.add(`${row},${col}`);
+    }
+
+    await Promise.all(toDestroy.map(async ({ row, col }) => {
       await this.destroyBlock(row, col);
       this.score += 10;
+    }));
+
+    for (const { row, col } of toDestroy) {
       await this.damageNeighbors(row, col, destroyed);
     }
 
@@ -146,6 +150,7 @@ class GameBoard {
 
   async damageNeighbors(row, col, destroyed) {
     const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+    const tasks = [];
     for (const [dr, dc] of dirs) {
       const nr = row + dr, nc = col + dc;
       const key = `${nr},${nc}`;
@@ -155,10 +160,13 @@ class GameBoard {
       const meta = BLOCK_META[neighbor.type];
       if (meta?.interacts) {
         destroyed.add(key);
-        await this.damageBlock(nr, nc);
-        this.score += 15;
+        tasks.push((async () => {
+          await this.damageBlock(nr, nc);
+          this.score += 15;
+        })());
       }
     }
+    await Promise.all(tasks);
   }
 
   async damageBlock(row, col) {
@@ -192,6 +200,14 @@ class GameBoard {
     }
   }
 
+  collectPowerUpArea(row, col, block, into) {
+    const cells = this.getPowerUpArea(row, col, block);
+    for (const cell of cells) {
+      const key = `${cell.row},${cell.col}`;
+      if (!into.has(key)) into.set(key, cell);
+    }
+  }
+
   async activatePowerUp(row, col, block, useMove) {
     this.busy = true;
     this.comboChain++;
@@ -200,32 +216,54 @@ class GameBoard {
       AudioEngine.combo(this.comboChain);
     }
 
-    const affected = this.getPowerUpArea(row, col, block);
-    const destroyed = new Set();
+    const affected = new Map();
+    const chain = [{ row, col, block }];
+    const chained = new Set();
 
-    for (const { row: r, col: c } of affected) {
-      const key = `${r},${c}`;
-      if (destroyed.has(key)) continue;
+    while (chain.length) {
+      const current = chain.pop();
+      const key = `${current.row},${current.col}`;
+      if (chained.has(key)) continue;
+      chained.add(key);
+      this.collectPowerUpArea(current.row, current.col, current.block, affected);
+
+      for (const { row: r, col: c } of this.getPowerUpArea(current.row, current.col, current.block)) {
+        const b = this.getBlock(r, c);
+        if (!b || !this.isPower(b)) continue;
+        if (r === current.row && c === current.col) continue;
+        chain.push({ row: r, col: c, block: b });
+      }
+    }
+
+    const cells = [...affected.values()];
+    this.callbacks.onExplosion(cells, block.type);
+
+    const destroyed = new Set();
+    const destroyTasks = [];
+
+    for (const { row: r, col: c } of cells) {
+      const cellKey = `${r},${c}`;
+      if (destroyed.has(cellKey)) continue;
       const b = this.getBlock(r, c);
       if (!b) continue;
-      destroyed.add(key);
+      destroyed.add(cellKey);
 
       if (b.type === 'vase' && b.health > 1) {
         b.health = 1;
         b.type = 'vase_cracked';
         this.callbacks.onBlockUpdated(r, c, b);
       } else if (BLOCK_META[b.type]?.interacts || this.isCube(b) || this.isPower(b)) {
-        await this.destroyBlock(r, c);
-        this.score += 20;
-        await this.damageNeighbors(r, c, destroyed);
+        destroyTasks.push((async () => {
+          await this.destroyBlock(r, c);
+          this.score += 20;
+          await this.damageNeighbors(r, c, destroyed);
+        })());
       }
     }
 
-    AudioEngine.explode();
-    ParticleSystem.sparkle(
-      this.callbacks.getCellCenter(row, col).x,
-      this.callbacks.getCellCenter(row, col).y
-    );
+    await Promise.all(destroyTasks);
+
+    AudioEngine.explode(block.type);
 
     if (useMove) {
       this.moves--;
@@ -241,6 +279,11 @@ class GameBoard {
 
   getPowerUpArea(row, col, block) {
     const cells = [];
+    const add = (r, c) => {
+      if (r >= 0 && r < this.height && c >= 0 && c < this.width) {
+        cells.push({ row: r, col: c });
+      }
+    };
 
     switch (block.type) {
       case 'rocket_h':
@@ -250,26 +293,21 @@ class GameBoard {
         for (let r = 0; r < this.height; r++) cells.push({ row: r, col });
         break;
       case 'bomb':
-      case 'tnt':
-        for (let dr = -1; dr <= 1; dr++) {
-          for (let dc = -1; dc <= 1; dc++) {
-            const r = row + dr, c = col + dc;
-            if (r >= 0 && r < this.height && c >= 0 && c < this.width) {
-              cells.push({ row: r, col: c });
-            }
+        for (let dr = -2; dr <= 2; dr++) {
+          for (let dc = -2; dc <= 2; dc++) {
+            add(row + dr, col + dc);
           }
         }
-        if (block.type === 'tnt') {
-          for (let dr = -2; dr <= 2; dr++) {
-            for (let dc = -2; dc <= 2; dc++) {
-              if (Math.abs(dr) <= 1 && Math.abs(dc) <= 1) continue;
-              if (Math.abs(dr) + Math.abs(dc) <= 2) {
-                const r = row + dr, c = col + dc;
-                if (r >= 0 && r < this.height && c >= 0 && c < this.width) {
-                  cells.push({ row: r, col: c });
-                }
-              }
-            }
+        break;
+      case 'tnt':
+        for (let dr = -2; dr <= 2; dr++) {
+          for (let dc = -2; dc <= 2; dc++) {
+            if (Math.abs(dr) + Math.abs(dc) <= 2) add(row + dr, col + dc);
+          }
+        }
+        for (let dr = -3; dr <= 3; dr++) {
+          for (let dc = -3; dc <= 3; dc++) {
+            if (Math.abs(dr) + Math.abs(dc) === 3) add(row + dr, col + dc);
           }
         }
         break;
@@ -290,48 +328,84 @@ class GameBoard {
   }
 
   async applyGravity() {
-    let moved = false;
+    const falls = [];
+
     for (let col = 0; col < this.width; col++) {
-      for (let row = this.height - 1; row >= 0; row--) {
-        if (this.getBlock(row, col) !== null) continue;
+      let writeRow = this.height - 1;
 
-        for (let above = row - 1; above >= 0; above--) {
-          const block = this.getBlock(above, col);
-          if (block === null) continue;
-          if (!BLOCK_META[block.type]?.fallable) break;
+      for (let readRow = this.height - 1; readRow >= 0; readRow--) {
+        const block = this.getBlock(readRow, col);
+        if (block === null) continue;
 
-          this.setBlock(row, col, block);
-          this.setBlock(above, col, null);
-          await this.callbacks.onBlockFall(above, col, row, col);
-          moved = true;
-          break;
+        if (!BLOCK_META[block.type]?.fallable) {
+          writeRow = readRow - 1;
+          continue;
         }
+
+        if (readRow !== writeRow) {
+          this.setBlock(writeRow, col, block);
+          this.setBlock(readRow, col, null);
+          falls.push({ fromRow: readRow, fromCol: col, toRow: writeRow, toCol: col });
+        }
+        writeRow--;
       }
     }
-    if (moved) AudioEngine.fall();
-    return moved;
+
+    if (falls.length) {
+      AudioEngine.fall();
+      await Promise.all(falls.map(f =>
+        this.callbacks.onBlockFall(f.fromRow, f.fromCol, f.toRow, f.toCol)
+      ));
+    }
+    return falls.length > 0;
   }
 
   async spawnNew() {
-    let spawned = false;
+    const spawns = [];
+
     for (let col = 0; col < this.width; col++) {
       if (this.getBlock(0, col) === null) {
         const newBlock = randomCube();
         this.setBlock(0, col, newBlock);
-        await this.callbacks.onBlockSpawn(0, col, newBlock);
-        spawned = true;
+        spawns.push({ row: 0, col, block: newBlock });
       }
     }
-    return spawned;
+
+    if (spawns.length) {
+      await Promise.all(spawns.map(s =>
+        this.callbacks.onBlockSpawn(s.row, s.col, s.block)
+      ));
+    }
+    return spawns.length > 0;
   }
 
   async settle() {
     let changed = true;
-    while (changed) {
+    let passes = 0;
+    while (changed && passes < 30) {
+      passes++;
       changed = await this.applyGravity();
       changed = (await this.spawnNew()) || changed;
-      if (changed) await delay(100);
+      if (changed) await delay(20);
     }
+  }
+
+  placePowerUp(row, col, type, sourceColor) {
+    if (this.busy) return false;
+    const block = this.getBlock(row, col);
+    if (!block || !this.isCube(block)) return false;
+
+    const powerUp = this.createPowerUp(type, sourceColor);
+    this.setBlock(row, col, powerUp);
+    this.callbacks.onBlockUpdated(row, col, powerUp);
+    AudioEngine.powerUp();
+    return true;
+  }
+
+  addMoves(count) {
+    this.moves += count;
+    this.callbacks.onMovesChanged(this.moves);
+    AudioEngine.coin();
   }
 
   checkEnd() {
