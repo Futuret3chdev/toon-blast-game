@@ -1,9 +1,10 @@
-const CACHE = 'mte-pop-v1';
+const CACHE = 'mte-pop-v2';
 const ASSETS = [
   '/',
   '/index.html',
   '/css/style.css',
   '/js/config.js',
+  '/js/icons.js',
   '/js/auth.js',
   '/js/pwa.js',
   '/js/levels.js',
@@ -12,7 +13,9 @@ const ASSETS = [
   '/js/board.js',
   '/js/game.js',
   '/manifest.json',
-  '/icon.svg'
+  '/icon.svg',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png'
 ];
 
 self.addEventListener('install', (e) => {
