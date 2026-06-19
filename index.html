@@ -43,10 +43,10 @@
         </div>
         <p class="tagline">Tap matching blocks to pop!</p>
 
-        <button id="play-btn" class="btn-primary">▶ Play Level <span id="menu-level">1</span></button>
-        <button id="level-select-btn" class="btn-secondary">🗺 Level Map</button>
-        <button id="shop-btn" class="btn-secondary">🛒 Shop</button>
-        <button id="invite-btn" class="btn-secondary">📨 Invite Friends</button>
+        <button id="play-btn" class="btn-primary" type="button">▶ Play Level <span id="menu-level">1</span></button>
+        <button id="level-select-btn" class="btn-secondary" type="button">🗺 Level Map</button>
+        <button id="shop-btn" class="btn-secondary" type="button">🛒 Shop</button>
+        <button id="invite-btn" class="btn-secondary" type="button">📨 Invite Friends</button>
 
         <div class="menu-stats">
           <div class="stat"><span class="stat-icon">⭐</span><span id="total-stars">0</span> Stars</div>
@@ -126,7 +126,7 @@
         <button class="btn-back" id="level-back" type="button" aria-label="Back">←</button>
         <h2>Adventure Map</h2>
       </div>
-      <div id="level-map" class="level-map"></div>
+      <div id="level-grid" class="level-map"></div>
     </div>
 
     <div id="game-screen" class="screen">
@@ -182,6 +182,19 @@
         <div class="modal-actions">
           <button id="x-login-confirm" class="btn-primary" type="button">Continue</button>
           <button id="x-login-cancel" class="btn-secondary" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="invite-modal" class="modal hidden">
+      <div class="modal-content">
+        <h2>Invite Friends</h2>
+        <p class="modal-hint">Share this link so friends can play MTE POP:</p>
+        <p id="invite-url" class="invite-url"></p>
+        <div class="modal-actions">
+          <button id="invite-copy-btn" class="btn-primary" type="button">Copy Link</button>
+          <button id="invite-share-btn" class="btn-secondary" type="button">Share</button>
+          <button id="invite-close-btn" class="btn-secondary" type="button">Close</button>
         </div>
       </div>
     </div>
