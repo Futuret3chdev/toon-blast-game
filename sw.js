@@ -1,10 +1,9 @@
-const CACHE = 'mte-pop-v3';
+const CACHE = 'mte-pop-v4';
 const ASSETS = [
   '/',
   '/index.html',
   '/css/style.css',
   '/js/config.js',
-  '/js/icons.js',
   '/js/auth.js',
   '/js/pwa.js',
   '/js/levels.js',
