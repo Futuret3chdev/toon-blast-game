@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/style.css?v=11">
+  <link rel="stylesheet" href="/css/style.css?v=12">
 </head>
 <body>
   <div id="app">
@@ -118,8 +118,8 @@
         </section>
 
         <section id="auth-section" class="settings-card">
-          <h3 class="card-title">Sign In</h3>
-          <p class="card-sub">Optional — sync progress across devices</p>
+          <h3 class="card-title">Sign In or Sign Up</h3>
+          <p class="card-sub">Create an account or sign in — progress syncs across devices</p>
           <div class="social-login">
             <button id="login-google" class="btn-social btn-google" type="button">
               <span class="social-mark social-mark-google" aria-hidden="true"></span>
@@ -134,6 +134,11 @@
               <span class="social-mark social-mark-x" aria-hidden="true"></span>
               <span>Continue with X</span>
             </button>
+            <button id="login-discord" class="btn-social btn-discord" type="button">
+              <span class="social-mark social-mark-discord" aria-hidden="true"></span>
+              <span>Continue with Discord</span>
+            </button>
+            <div id="telegram-login-container" class="telegram-login-container"></div>
           </div>
           <button id="logout-btn" class="btn-secondary btn-block hidden" type="button">Sign Out</button>
         </section>
@@ -234,13 +239,14 @@
     <div id="toast" class="toast hidden"></div>
   </div>
 
-  <script src="/js/config.js?v=11"></script>
-  <script src="/js/levels.js?v=11"></script>
-  <script src="/js/auth.js?v=11"></script>
-  <script src="/js/audio.js?v=11"></script>
-  <script src="/js/particles.js?v=11"></script>
-  <script src="/js/board.js?v=11"></script>
-  <script src="/js/pwa.js?v=11"></script>
-  <script src="/js/game.js?v=11"></script>
+  <script src="/js/config.js?v=12"></script>
+  <script src="/js/levels.js?v=12"></script>
+  <script src="/js/oauth.js?v=12"></script>
+  <script src="/js/auth.js?v=12"></script>
+  <script src="/js/audio.js?v=12"></script>
+  <script src="/js/particles.js?v=12"></script>
+  <script src="/js/board.js?v=12"></script>
+  <script src="/js/pwa.js?v=12"></script>
+  <script src="/js/game.js?v=12"></script>
 </body>
 </html>
