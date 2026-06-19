@@ -1,18 +1,6 @@
-const CACHE = 'mte-pop-v17';
+const CACHE = 'mte-pop-v18';
 const ASSETS = [
-  '/',
-  '/index.html',
   '/auth/callback.html',
-  '/css/style.css?v=15',
-  '/js/config.js?v=15',
-  '/js/oauth.js?v=15',
-  '/js/auth.js?v=15',
-  '/js/pwa.js?v=15',
-  '/js/levels.js?v=15',
-  '/js/audio.js?v=15',
-  '/js/particles.js?v=15',
-  '/js/board.js?v=15',
-  '/js/game.js?v=15',
   '/manifest.json',
   '/icon.svg',
   '/icons/icon-192.png',
@@ -36,8 +24,24 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
+  const isHtml = e.request.mode === 'navigate'
+    || url.pathname === '/'
+    || url.pathname.endsWith('.html');
   const isScript = url.pathname.endsWith('.js');
   const isStyle = url.pathname.endsWith('.css');
+
+  if (isHtml) {
+    e.respondWith(
+      fetch(e.request).then((res) => {
+        if (res.ok) {
+          const clone = res.clone();
+          caches.open(CACHE).then((cache) => cache.put(e.request, clone));
+        }
+        return res;
+      }).catch(() => caches.match(e.request))
+    );
+    return;
+  }
 
   e.respondWith(
     (isScript || isStyle

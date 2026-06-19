@@ -2231,6 +2231,36 @@ body {
   box-shadow: 0 3px 10px rgba(34, 158, 217, 0.35);
 }
 
+.btn-telegram-menu {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: var(--content-max);
+  padding: 0.9rem 1.25rem;
+  border: none;
+  border-radius: 50px;
+  font-family: inherit;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  background: linear-gradient(135deg, #2AABEE 0%, #229ED9 100%);
+  color: #fff;
+  box-shadow: 0 4px 0 #1487c4, 0 6px 20px rgba(34, 158, 217, 0.4);
+  text-align: left;
+}
+
+.btn-telegram-menu:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #1487c4;
+}
+
+.btn-telegram-menu.hidden {
+  display: none !important;
+}
+
 .social-mark-telegram {
   background: #fff;
   color: #229ED9;

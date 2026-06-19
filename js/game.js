@@ -83,6 +83,8 @@ const Game = (() => {
     const prof = AuthManager.getProfile();
 
     $('logout-btn')?.classList.toggle('hidden', !loggedIn);
+    $('menu-telegram-btn')?.classList.toggle('hidden', loggedIn);
+    $('login-telegram')?.classList.remove('hidden');
 
     const providerLabels = {
       google: 'Google',
@@ -958,7 +960,7 @@ const Game = (() => {
       }, 2000);
     }
 
-    $('login-telegram')?.addEventListener('click', async () => {
+    async function startTelegramSignIn() {
       const mode = MTEPOP_CONFIG.telegramAuthMode || 'deeplink';
       const container = $('telegram-login-container');
 
@@ -975,7 +977,10 @@ const Game = (() => {
       }
 
       await beginTelegramDeepLink();
-    });
+    }
+
+    $('login-telegram')?.addEventListener('click', startTelegramSignIn);
+    $('menu-telegram-btn')?.addEventListener('click', startTelegramSignIn);
 
     $('telegram-login-cancel')?.addEventListener('click', () => {
       stopTelegramPoll();
