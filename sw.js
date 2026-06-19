@@ -1,4 +1,4 @@
-const CACHE = 'mte-pop-v18';
+const CACHE = 'mte-pop-v19';
 const ASSETS = [
   '/auth/callback.html',
   '/manifest.json',

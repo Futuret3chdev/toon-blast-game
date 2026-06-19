@@ -1,4 +1,4 @@
-import { completeSession } from '../_store.js';
+import { hmacSign, mintLoginToken } from '../_crypto.js';
 
 export default function handler(req, res) {
   if (req.method !== 'POST') {
@@ -20,10 +20,16 @@ export default function handler(req, res) {
 
   const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
   const code = String(body.code || '').trim();
+  const sig = String(body.sig || '').trim();
   const id = Number(body.id);
 
-  if (!code || !id) {
-    res.status(400).json({ error: 'Missing code or id' });
+  if (!code || !sig || !id) {
+    res.status(400).json({ error: 'Missing code, sig, or id' });
+    return;
+  }
+
+  if (hmacSign(code, secret) !== sig) {
+    res.status(401).json({ error: 'Invalid sign-in code' });
     return;
   }
 
@@ -34,10 +40,14 @@ export default function handler(req, res) {
     last_name: body.last_name || ''
   };
 
-  if (!completeSession(code, user)) {
-    res.status(404).json({ error: 'Session not found or already used' });
-    return;
-  }
+  const appUrl = process.env.MTEPOP_APP_URL || 'https://mte-pop.vercel.app';
+  const loginToken = mintLoginToken(user, secret);
+  const loginUrl = `${appUrl.replace(/\/$/, '')}/?tg_auth=${encodeURIComponent(loginToken)}`;
 
-  res.status(200).json({ ok: true });
+  res.status(200).json({
+    ok: true,
+    loginUrl,
+    message: '✅ MTE POP linked! Tap the button below to finish sign-in.',
+    user
+  });
 }

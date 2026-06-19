@@ -2324,19 +2324,9 @@ body {
   50% { opacity: 1; }
 }
 
-.telegram-fallback {
-  margin: 0.75rem 0 0.5rem;
-  font-size: 0.85rem;
-}
-
-.telegram-fallback summary {
-  cursor: pointer;
-  opacity: 0.85;
-  margin-bottom: 0.5rem;
-}
-
-.telegram-fallback .field-input {
-  margin-top: 0.5rem;
+.telegram-fallback-label {
+  margin-top: 0.75rem;
+  margin-bottom: 0.35rem;
 }
 
 .google-btn-container {

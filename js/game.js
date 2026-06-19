@@ -33,8 +33,6 @@ const Game = (() => {
   let placementMode = null;
   let progress = null;
   let uiReady = false;
-  let telegramPollTimer = null;
-
   const $ = id => document.getElementById(id);
 
   const SCREEN_IDS = {
@@ -919,13 +917,6 @@ const Game = (() => {
       await handleAuthResult(result, 'Discord');
     });
 
-    function stopTelegramPoll() {
-      if (telegramPollTimer) {
-        clearInterval(telegramPollTimer);
-        telegramPollTimer = null;
-      }
-    }
-
     async function beginTelegramDeepLink() {
       const bot = MTEPOP_CONFIG.telegramBotUsername?.replace('@', '') || 'mod_futuret3ch_bot';
       const session = await AuthManager.startTelegramDeepLink();
@@ -942,22 +933,25 @@ const Game = (() => {
         linkEl.textContent = `Open @${bot}`;
       }
       $('telegram-auth-waiting')?.classList.remove('hidden');
-      $('telegram-auth-status').textContent = 'Open Telegram, tap Start, then return here.';
+      $('telegram-auth-status').innerHTML = `Open <strong>@${bot}</strong>, tap <strong>Start</strong>, then tap the <strong>Finish sign-in</strong> button the bot sends you.`;
       $('telegram-login-modal')?.classList.remove('hidden');
+    }
 
-      stopTelegramPoll();
-      telegramPollTimer = setInterval(async () => {
-        const status = await AuthManager.pollTelegramDeepLink(session.code);
-        if (status?.status === 'ok' && status.user) {
-          stopTelegramPoll();
-          $('telegram-login-modal')?.classList.add('hidden');
-          const result = AuthManager.signInTelegramUser(status.user);
-          await handleAuthResult(result, 'Telegram');
-        } else if (status?.status === 'expired') {
-          stopTelegramPoll();
-          showToast('Telegram link expired — try again');
-        }
-      }, 2000);
+    async function finishTelegramUrlAuth() {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('tg_auth');
+      if (!token) return;
+
+      const result = await AuthManager.exchangeTelegramLoginToken(token);
+      params.delete('tg_auth');
+      const next = `${window.location.pathname || '/'}${params.toString() ? `?${params}` : ''}`;
+      window.history.replaceState({}, '', next);
+
+      if (result?.ok) {
+        await handleAuthResult(result, 'Telegram');
+      } else if (result?.error) {
+        showToast(result.error);
+      }
     }
 
     async function startTelegramSignIn() {
@@ -983,7 +977,6 @@ const Game = (() => {
     $('menu-telegram-btn')?.addEventListener('click', startTelegramSignIn);
 
     $('telegram-login-cancel')?.addEventListener('click', () => {
-      stopTelegramPoll();
       $('telegram-auth-waiting')?.classList.add('hidden');
       $('telegram-login-modal')?.classList.add('hidden');
     });
@@ -1140,6 +1133,7 @@ const Game = (() => {
 
     bindUI();
     reloadProgress();
+    finishTelegramUrlAuth();
 
     try {
       ParticleSystem.init(particlesCanvas);

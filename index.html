@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/style.css?v=18">
+  <link rel="stylesheet" href="/css/style.css?v=19">
 </head>
 <body>
   <div id="app">
@@ -221,14 +221,12 @@
     <div id="telegram-login-modal" class="modal hidden">
       <div class="modal-content">
         <h2>Sign in with Telegram</h2>
-        <p id="telegram-auth-status" class="modal-hint">Open <strong>@mod_futuret3ch_bot</strong> in Telegram and tap <strong>Start</strong> to link your account.</p>
-        <a id="telegram-open-bot" class="btn-primary btn-block telegram-open-link" href="#" target="_blank" rel="noopener noreferrer">Open Telegram</a>
-        <p id="telegram-auth-waiting" class="telegram-waiting hidden">Waiting for confirmation…</p>
-        <details id="telegram-fallback-details" class="telegram-fallback">
-          <summary>Or enter @username manually</summary>
-          <input id="telegram-username-input" class="field-input" type="text" maxlength="32" placeholder="@username">
-          <button id="telegram-login-confirm" class="btn-secondary btn-block" type="button">Continue with username</button>
-        </details>
+        <p id="telegram-auth-status" class="modal-hint">Open <strong>@mod_futuret3ch_bot</strong>, tap <strong>Start</strong>, then tap the <strong>Finish sign-in</strong> button the bot sends.</p>
+        <a id="telegram-open-bot" class="btn-primary btn-block telegram-open-link" href="#" target="_blank" rel="noopener noreferrer">Open @mod_futuret3ch_bot</a>
+        <p id="telegram-auth-waiting" class="telegram-waiting hidden">Waiting for the bot to send your finish link…</p>
+        <p class="modal-hint telegram-fallback-label">Or enter your @username (works without bot setup):</p>
+        <input id="telegram-username-input" class="field-input" type="text" maxlength="32" placeholder="@username">
+        <button id="telegram-login-confirm" class="btn-secondary btn-block" type="button">Continue with username</button>
         <div class="modal-actions">
           <button id="telegram-login-cancel" class="btn-secondary" type="button">Cancel</button>
         </div>
@@ -238,14 +236,14 @@
     <div id="toast" class="toast hidden"></div>
   </div>
 
-  <script src="/js/config.js?v=18"></script>
-  <script src="/js/levels.js?v=18"></script>
-  <script src="/js/oauth.js?v=18"></script>
-  <script src="/js/auth.js?v=18"></script>
-  <script src="/js/audio.js?v=18"></script>
-  <script src="/js/particles.js?v=18"></script>
-  <script src="/js/board.js?v=18"></script>
-  <script src="/js/pwa.js?v=18"></script>
-  <script src="/js/game.js?v=18"></script>
+  <script src="/js/config.js?v=19"></script>
+  <script src="/js/levels.js?v=19"></script>
+  <script src="/js/oauth.js?v=19"></script>
+  <script src="/js/auth.js?v=19"></script>
+  <script src="/js/audio.js?v=19"></script>
+  <script src="/js/particles.js?v=19"></script>
+  <script src="/js/board.js?v=19"></script>
+  <script src="/js/pwa.js?v=19"></script>
+  <script src="/js/game.js?v=19"></script>
 </body>
 </html>

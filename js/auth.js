@@ -448,14 +448,15 @@ const AuthManager = (() => {
     }
   }
 
-  async function pollTelegramDeepLink(code) {
+  async function exchangeTelegramLoginToken(token) {
+    if (!token) return { ok: false, error: 'Missing login token' };
     try {
-      const res = await fetch(`/api/telegram/status?code=${encodeURIComponent(code)}`);
-      if (res.status === 404) return { status: 'expired' };
-      if (!res.ok) return { status: 'error' };
-      return await res.json();
+      const res = await fetch(`/api/telegram/exchange?token=${encodeURIComponent(token)}`);
+      if (!res.ok) return { ok: false, error: 'Login link expired — try again from the game' };
+      const user = await res.json();
+      return signInTelegramUser(user);
     } catch {
-      return { status: 'error' };
+      return { ok: false, error: 'Could not finish Telegram sign-in' };
     }
   }
 
@@ -617,7 +618,7 @@ const AuthManager = (() => {
     signInTelegramUser,
     tryTelegramWebAppAuth,
     startTelegramDeepLink,
-    pollTelegramDeepLink,
+    exchangeTelegramLoginToken,
     signInDiscord,
     renderGoogleButton,
     renderTelegramWidget,
