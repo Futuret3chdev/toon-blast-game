@@ -69,19 +69,15 @@ class GameBoard {
     return block;
   }
 
-  determinePowerUp(match, tapRow, tapCol) {
+  determinePowerUp(match) {
     const cubeCount = match.length;
     if (cubeCount < 5) return null;
 
     const color = BLOCK_META[match[0].block.type].matchColor;
     const { width, height } = this.getClusterShape(match);
 
-    if (cubeCount >= 9) {
-      return this.createPowerUp('disco', color);
-    }
-    if (cubeCount >= 7) {
-      return this.createPowerUp('bomb');
-    }
+    if (cubeCount >= 9) return this.createPowerUp('disco', color);
+    if (cubeCount >= 7) return this.createPowerUp('bomb');
     return this.createPowerUp(width >= height ? 'rocket_h' : 'rocket_v');
   }
 
@@ -107,19 +103,25 @@ class GameBoard {
 
     this.busy = true;
     this.comboChain = 0;
-    const powerUp = this.determinePowerUp(match, row, col);
+    const powerUp = this.determinePowerUp(match);
     const tapCell = { row, col };
 
     await this.destroyMatch(match, tapCell, powerUp);
     this.moves--;
     this.callbacks.onMovesChanged(this.moves);
 
-    await this.settle();
-    this.busy = false;
-
-    this.callbacks.onStateChange();
-    this.checkEnd();
-    this.resetHintTimer();
+    if (powerUp) {
+      this.setBlock(tapCell.row, tapCell.col, powerUp);
+      this.callbacks.onBlockCreated(tapCell.row, tapCell.col, powerUp);
+      AudioEngine.powerUp();
+      await this.activatePowerUp(tapCell.row, tapCell.col, powerUp, false);
+    } else {
+      await this.settle();
+      this.busy = false;
+      this.callbacks.onStateChange();
+      this.checkEnd();
+      this.resetHintTimer();
+    }
   }
 
   async destroyMatch(match, tapCell, powerUp) {
@@ -130,46 +132,43 @@ class GameBoard {
       destroyed.add(`${row},${col}`);
     }
 
-    await Promise.all(toDestroy.map(async ({ row, col }) => {
-      await this.destroyBlock(row, col);
-      this.score += 10;
-    }));
+    this.callbacks.onMatchPop(
+      toDestroy
+        .filter(c => !(powerUp && c.row === tapCell.row && c.col === tapCell.col))
+        .map(c => ({ ...c }))
+    );
 
     for (const { row, col } of toDestroy) {
-      await this.damageNeighbors(row, col, destroyed);
+      if (row === tapCell.row && col === tapCell.col && powerUp) continue;
+      await this.destroyBlock(row, col, true);
+      this.score += 10;
     }
 
-    AudioEngine.match(match.length);
-
-    if (powerUp) {
-      this.setBlock(tapCell.row, tapCell.col, powerUp);
-      this.callbacks.onBlockCreated(tapCell.row, tapCell.col, powerUp);
-      AudioEngine.powerUp();
-    }
-  }
-
-  async damageNeighbors(row, col, destroyed) {
-    const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
-    const tasks = [];
-    for (const [dr, dc] of dirs) {
-      const nr = row + dr, nc = col + dc;
-      const key = `${nr},${nc}`;
-      if (destroyed.has(key)) continue;
-      const neighbor = this.getBlock(nr, nc);
-      if (!neighbor) continue;
-      const meta = BLOCK_META[neighbor.type];
-      if (meta?.interacts) {
-        destroyed.add(key);
-        tasks.push((async () => {
-          await this.damageBlock(nr, nc);
-          this.score += 15;
-        })());
+    const neighbors = new Set();
+    for (const { row, col } of toDestroy) {
+      const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+      for (const [dr, dc] of dirs) {
+        const nr = row + dr, nc = col + dc;
+        const key = `${nr},${nc}`;
+        if (destroyed.has(key) || neighbors.has(key)) continue;
+        const neighbor = this.getBlock(nr, nc);
+        if (neighbor && BLOCK_META[neighbor.type]?.interacts) {
+          neighbors.add(key);
+        }
       }
     }
-    await Promise.all(tasks);
+
+    await Promise.all([...neighbors].map(async (key) => {
+      const [nr, nc] = key.split(',').map(Number);
+      destroyed.add(key);
+      await this.damageBlock(nr, nc, true);
+      this.score += 15;
+    }));
+
+    AudioEngine.match(match.length);
   }
 
-  async damageBlock(row, col) {
+  async damageBlock(row, col, fast = false) {
     const block = this.getBlock(row, col);
     if (!block) return;
 
@@ -181,14 +180,14 @@ class GameBoard {
       return;
     }
 
-    await this.destroyBlock(row, col);
+    await this.destroyBlock(row, col, fast);
   }
 
-  async destroyBlock(row, col) {
+  async destroyBlock(row, col, fast = false) {
     const block = this.getBlock(row, col);
     if (!block) return;
     this.updateGoals(block.type === 'vase_cracked' ? 'vase' : block.type);
-    await this.callbacks.onBlockDestroy(row, col, block);
+    await this.callbacks.onBlockDestroy(row, col, block, fast);
     this.setBlock(row, col, null);
   }
 
@@ -201,8 +200,7 @@ class GameBoard {
   }
 
   collectPowerUpArea(row, col, block, into) {
-    const cells = this.getPowerUpArea(row, col, block);
-    for (const cell of cells) {
+    for (const cell of this.getPowerUpArea(row, col, block)) {
       const key = `${cell.row},${cell.col}`;
       if (!into.has(key)) into.set(key, cell);
     }
@@ -236,11 +234,9 @@ class GameBoard {
     }
 
     const cells = [...affected.values()];
-    this.callbacks.onExplosion(cells, block.type);
+    await this.callbacks.onPowerUpExplosion(row, col, cells, block.type);
 
     const destroyed = new Set();
-    const destroyTasks = [];
-
     for (const { row: r, col: c } of cells) {
       const cellKey = `${r},${c}`;
       if (destroyed.has(cellKey)) continue;
@@ -253,15 +249,14 @@ class GameBoard {
         b.type = 'vase_cracked';
         this.callbacks.onBlockUpdated(r, c, b);
       } else if (BLOCK_META[b.type]?.interacts || this.isCube(b) || this.isPower(b)) {
-        destroyTasks.push((async () => {
-          await this.destroyBlock(r, c);
-          this.score += 20;
-          await this.damageNeighbors(r, c, destroyed);
-        })());
+        await this.destroyBlock(r, c, true);
+        this.score += 20;
       }
     }
 
-    await Promise.all(destroyTasks);
+    for (const { row: r, col: c } of cells) {
+      await this.damageNeighborsFrom(r, c, destroyed);
+    }
 
     AudioEngine.explode(block.type);
 
@@ -275,6 +270,25 @@ class GameBoard {
     this.callbacks.onStateChange();
     this.checkEnd();
     this.resetHintTimer();
+  }
+
+  async damageNeighborsFrom(row, col, destroyed) {
+    const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+    const tasks = [];
+    for (const [dr, dc] of dirs) {
+      const nr = row + dr, nc = col + dc;
+      const key = `${nr},${nc}`;
+      if (destroyed.has(key)) continue;
+      const neighbor = this.getBlock(nr, nc);
+      if (neighbor && BLOCK_META[neighbor.type]?.interacts) {
+        destroyed.add(key);
+        tasks.push((async () => {
+          await this.damageBlock(nr, nc, true);
+          this.score += 15;
+        })());
+      }
+    }
+    await Promise.all(tasks);
   }
 
   getPowerUpArea(row, col, block) {
@@ -294,9 +308,7 @@ class GameBoard {
         break;
       case 'bomb':
         for (let dr = -2; dr <= 2; dr++) {
-          for (let dc = -2; dc <= 2; dc++) {
-            add(row + dr, col + dc);
-          }
+          for (let dc = -2; dc <= 2; dc++) add(row + dr, col + dc);
         }
         break;
       case 'tnt':
@@ -327,21 +339,17 @@ class GameBoard {
     return cells;
   }
 
-  async applyGravity() {
+  applyGravitySync() {
     const falls = [];
-
     for (let col = 0; col < this.width; col++) {
       let writeRow = this.height - 1;
-
       for (let readRow = this.height - 1; readRow >= 0; readRow--) {
         const block = this.getBlock(readRow, col);
         if (block === null) continue;
-
         if (!BLOCK_META[block.type]?.fallable) {
           writeRow = readRow - 1;
           continue;
         }
-
         if (readRow !== writeRow) {
           this.setBlock(writeRow, col, block);
           this.setBlock(readRow, col, null);
@@ -350,19 +358,11 @@ class GameBoard {
         writeRow--;
       }
     }
-
-    if (falls.length) {
-      AudioEngine.fall();
-      await Promise.all(falls.map(f =>
-        this.callbacks.onBlockFall(f.fromRow, f.fromCol, f.toRow, f.toCol)
-      ));
-    }
-    return falls.length > 0;
+    return falls;
   }
 
-  async spawnNew() {
+  spawnNewSync() {
     const spawns = [];
-
     for (let col = 0; col < this.width; col++) {
       if (this.getBlock(0, col) === null) {
         const newBlock = randomCube();
@@ -370,27 +370,29 @@ class GameBoard {
         spawns.push({ row: 0, col, block: newBlock });
       }
     }
-
-    if (spawns.length) {
-      await Promise.all(spawns.map(s =>
-        this.callbacks.onBlockSpawn(s.row, s.col, s.block)
-      ));
-    }
-    return spawns.length > 0;
+    return spawns;
   }
 
   async settle() {
+    const allFalls = [];
+    const allSpawns = [];
     let changed = true;
     let passes = 0;
-    while (changed && passes < 30) {
+
+    while (changed && passes < 40) {
       passes++;
-      changed = await this.applyGravity();
-      changed = (await this.spawnNew()) || changed;
-      if (changed) await delay(20);
+      const falls = this.applyGravitySync();
+      const spawns = this.spawnNewSync();
+      changed = falls.length > 0 || spawns.length > 0;
+      allFalls.push(...falls);
+      allSpawns.push(...spawns);
     }
+
+    if (allFalls.length) AudioEngine.fall();
+    await this.callbacks.onBatchSettle(allFalls, allSpawns);
   }
 
-  placePowerUp(row, col, type, sourceColor) {
+  async placeAndActivate(row, col, type, sourceColor) {
     if (this.busy) return false;
     const block = this.getBlock(row, col);
     if (!block || !this.isCube(block)) return false;
@@ -399,6 +401,7 @@ class GameBoard {
     this.setBlock(row, col, powerUp);
     this.callbacks.onBlockUpdated(row, col, powerUp);
     AudioEngine.powerUp();
+    await this.activatePowerUp(row, col, powerUp, false);
     return true;
   }
 
@@ -453,12 +456,4 @@ class GameBoard {
       this.hintCells = [];
     }
   }
-
-  allGoalsMet() {
-    return Object.keys(this.goals).every(type => this.goalProgress[type] <= 0);
-  }
-}
-
-function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
 }
