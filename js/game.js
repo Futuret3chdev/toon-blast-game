@@ -1,22 +1,22 @@
 const Game = (() => {
   const SHOP_ITEMS = [
-    { id: 'bomb', label: 'Bomb', icon: '💣', desc: 'Blasts a 5×5 area!', price: 100, type: 'bomb' },
-    { id: 'rocket', label: 'Rocket', icon: '🚀', desc: 'Clears a full row or column', price: 150, type: 'rocket_h' },
-    { id: 'disco', label: 'Disco Ball', icon: '🪩', desc: 'Destroys all blocks of one color', price: 200, type: 'disco' },
-    { id: 'extra_moves', label: '+5 Moves', icon: '⚡', desc: 'Instantly add 5 extra moves', price: 250, type: 'extra_moves' }
+    { id: 'bomb', label: 'Bomb', iconClass: 'shop-icon-bomb', desc: 'Blasts a 5×5 area!', price: 100, type: 'bomb' },
+    { id: 'rocket', label: 'Rocket', iconClass: 'shop-icon-rocket', desc: 'Clears a full row or column', price: 150, type: 'rocket_h' },
+    { id: 'disco', label: 'Disco Ball', iconClass: 'shop-icon-disco', desc: 'Destroys all blocks of one color', price: 200, type: 'disco' },
+    { id: 'extra_moves', label: '+5 Moves', iconClass: 'shop-icon-moves', desc: 'Instantly add 5 extra moves', price: 250, type: 'extra_moves' }
   ];
 
   const STATION_DATA = [
-    { icon: '🌻', name: 'Sunny Meadow', color: '#55efc4' },
-    { icon: '⛰️', name: 'Rocky Hills', color: '#74b9ff' },
-    { icon: '🏜️', name: 'Golden Desert', color: '#fdcb6e' },
-    { icon: '🌲', name: 'Pine Forest', color: '#00b894' },
-    { icon: '🏰', name: 'Royal Castle', color: '#a29bfe' },
-    { icon: '🌊', name: 'Ocean Cove', color: '#0984e3' },
-    { icon: '❄️', name: 'Ice Kingdom', color: '#dfe6e9' },
-    { icon: '🌋', name: 'Volcano Peak', color: '#d63031' },
-    { icon: '🌈', name: 'Cloud City', color: '#fd79a8' },
-    { icon: '👑', name: 'Final Station', color: '#ffeaa7' }
+    { name: 'Sunny Meadow', color: '#55efc4' },
+    { name: 'Rocky Hills', color: '#74b9ff' },
+    { name: 'Golden Desert', color: '#fdcb6e' },
+    { name: 'Pine Forest', color: '#00b894' },
+    { name: 'Royal Castle', color: '#a29bfe' },
+    { name: 'Ocean Cove', color: '#0984e3' },
+    { name: 'Ice Kingdom', color: '#dfe6e9' },
+    { name: 'Volcano Peak', color: '#d63031' },
+    { name: 'Cloud City', color: '#fd79a8' },
+    { name: 'Final Station', color: '#ffeaa7' }
   ];
 
   let board = null;
@@ -43,7 +43,6 @@ const Game = (() => {
   }
 
   function saveProgress() {
-    if (!AuthManager.isLoggedIn()) return;
     AuthManager.saveProgress(progress);
   }
 
@@ -60,24 +59,26 @@ const Game = (() => {
     const user = AuthManager.getUser();
     const prof = AuthManager.getProfile();
 
-    $('guest-banner')?.classList.toggle('hidden', loggedIn);
     $('logout-btn')?.classList.toggle('hidden', !loggedIn);
 
-
     const providerLabels = { google: 'Google', facebook: 'Facebook', x: 'X' };
+    const avatarColor = AuthManager.avatarColor(prof.avatar);
     if ($('profile-name')) $('profile-name').textContent = prof.name;
-    if ($('profile-avatar')) $('profile-avatar').textContent = prof.avatar;
-    if ($('profile-avatar-mini')) $('profile-avatar-mini').textContent = prof.avatar;
+    if ($('profile-avatar')) {
+      $('profile-avatar').textContent = prof.avatar;
+      $('profile-avatar').style.background = avatarColor;
+    }
+    if ($('profile-avatar-mini')) {
+      $('profile-avatar-mini').textContent = prof.avatar;
+      $('profile-avatar-mini').style.background = avatarColor;
+    }
     if ($('profile-frame')) $('profile-frame').style.setProperty('--frame-color', prof.frame);
     if ($('profile-provider')) {
       $('profile-provider').textContent = loggedIn
         ? `Signed in via ${providerLabels[user?.provider] || user?.provider}`
-        : 'Guest — progress not saved';
+        : 'Playing locally — sign in to sync across devices';
     }
     if ($('profile-name-input')) $('profile-name-input').value = prof.name;
-
-    $('next-level-btn')?.classList.toggle('hidden', !loggedIn);
-    $('win-guest-hint')?.classList.toggle('hidden', loggedIn);
   }
 
   function renderProfilePickers() {
@@ -88,16 +89,20 @@ const Game = (() => {
     frames.innerHTML = '';
     const prof = AuthManager.getProfile();
 
-    AuthManager.AVATARS.forEach(emoji => {
+    AuthManager.AVATARS.forEach(letter => {
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = `avatar-opt${prof.avatar === emoji ? ' active' : ''}`;
-      btn.textContent = emoji;
+      btn.className = `avatar-opt${prof.avatar === letter ? ' active' : ''}`;
+      btn.textContent = letter;
+      btn.style.background = AuthManager.avatarColor(letter);
       btn.addEventListener('click', () => {
         avatars.querySelectorAll('.avatar-opt').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        $('profile-avatar').textContent = emoji;
-        $('profile-avatar-mini').textContent = emoji;
+        const color = AuthManager.avatarColor(letter);
+        $('profile-avatar').textContent = letter;
+        $('profile-avatar').style.background = color;
+        $('profile-avatar-mini').textContent = letter;
+        $('profile-avatar-mini').style.background = color;
       });
       avatars.appendChild(btn);
     });
@@ -134,8 +139,8 @@ const Game = (() => {
   function updateMenuStats() {
     const playLevel = AuthManager.getPlayLevel(progress);
     if ($('menu-level')) $('menu-level').textContent = playLevel;
-    if ($('max-level')) $('max-level').textContent = AuthManager.isLoggedIn() ? progress.maxLevel : 1;
-    if ($('total-stars')) $('total-stars').textContent = AuthManager.isLoggedIn() ? progress.totalStars : 0;
+    if ($('max-level')) $('max-level').textContent = progress.maxLevel;
+    if ($('total-stars')) $('total-stars').textContent = progress.totalStars;
     if ($('menu-coins')) $('menu-coins').textContent = progress.coins;
     if ($('shop-coins')) $('shop-coins').textContent = progress.coins;
     updateInventoryHUD();
@@ -167,14 +172,14 @@ const Game = (() => {
       const el = document.createElement('div');
       el.className = 'shop-item';
       el.innerHTML = `
-        <div class="shop-item-icon">${item.icon}</div>
+        <div class="shop-item-icon ${item.iconClass}"></div>
         <div class="shop-item-info">
           <span class="shop-item-name">${item.label}</span>
           <span class="shop-item-desc">${item.desc}</span>
           <span class="shop-item-owned">In bag: ${owned}</span>
         </div>
         <button class="shop-buy-btn ${canAfford ? '' : 'disabled'}" type="button">
-          🪙 ${item.price}
+          ${item.price} coins
         </button>
       `;
       const btn = el.querySelector('.shop-buy-btn');
@@ -187,10 +192,6 @@ const Game = (() => {
   }
 
   function buyItem(item) {
-    if (!AuthManager.isLoggedIn()) {
-      showToast('Sign in to buy items!');
-      return;
-    }
     if (progress.coins < item.price) return;
     const invKey = item.type === 'rocket_h' ? 'rocket_h' : item.id === 'extra_moves' ? 'extra_moves' : item.type;
     progress.coins -= item.price;
@@ -239,9 +240,9 @@ const Game = (() => {
       const num = i + 1;
       const data = STATION_DATA[i] || STATION_DATA[0];
       const side = i % 2 === 0 ? 'left' : 'right';
-      const unlocked = AuthManager.isLoggedIn() ? num <= progress.maxLevel : num === 1;
+      const unlocked = num <= progress.maxLevel;
       const stars = progress.stars[num] || 0;
-      const isCurrent = AuthManager.isLoggedIn() && num === progress.maxLevel;
+      const isCurrent = num === progress.maxLevel;
 
       if (i > 0) {
         const rail = document.createElement('div');
@@ -255,14 +256,14 @@ const Game = (() => {
       station.dataset.level = num;
       station.innerHTML = `
         <div class="station-scenery" style="--station-color:${data.color}">
-          <span class="scenery-icon">${data.icon}</span>
+          <span class="scenery-dot"></span>
           <span class="scenery-name">${data.name}</span>
         </div>
         <button class="station-btn" type="button" ${unlocked ? '' : 'disabled'}>
           <span class="station-num">${num}</span>
-          <span class="station-stars">${'⭐'.repeat(stars)}${'☆'.repeat(3 - stars)}</span>
+          <span class="station-stars">${renderStarRow(stars)}</span>
         </button>
-        ${isCurrent ? '<div class="station-train">🚂</div>' : ''}
+        ${isCurrent ? '<div class="station-train">YOU</div>' : ''}
       `;
 
       if (unlocked) {
@@ -377,11 +378,11 @@ const Game = (() => {
   }
 
   const CUBE_STYLES = {
-    red:    { bg: 'linear-gradient(160deg, #ffb3be 0%, #ff4757 40%, #c0392b 100%)', face: '❤️' },
-    green:  { bg: 'linear-gradient(160deg, #a8f5c8 0%, #2ed573 40%, #1e8449 100%)', face: '🍀' },
-    blue:   { bg: 'linear-gradient(160deg, #8fa4ff 0%, #3742fa 40%, #1e3799 100%)', face: '💎' },
-    yellow: { bg: 'linear-gradient(160deg, #ffe066 0%, #ffa502 40%, #e67e22 100%)', face: '⭐' },
-    purple: { bg: 'linear-gradient(160deg, #d4b5ff 0%, #a55eea 40%, #6c3483 100%)', face: '🌸' }
+    red:    { bg: 'linear-gradient(160deg, #ffb3be 0%, #ff4757 40%, #c0392b 100%)' },
+    green:  { bg: 'linear-gradient(160deg, #a8f5c8 0%, #2ed573 40%, #1e8449 100%)' },
+    blue:   { bg: 'linear-gradient(160deg, #8fa4ff 0%, #3742fa 40%, #1e3799 100%)' },
+    yellow: { bg: 'linear-gradient(160deg, #ffe066 0%, #ffa502 40%, #e67e22 100%)' },
+    purple: { bg: 'linear-gradient(160deg, #d4b5ff 0%, #a55eea 40%, #6c3483 100%)' }
   };
 
   function createBlockEl(block, row, col) {
@@ -394,10 +395,9 @@ const Game = (() => {
     const cube = CUBE_STYLES[block.type];
     if (cube) {
       el.style.background = cube.bg;
-      const face = document.createElement('span');
-      face.className = 'block-face';
-      face.textContent = cube.face;
-      el.appendChild(face);
+      const shine = document.createElement('span');
+      shine.className = 'block-shine';
+      el.appendChild(shine);
     }
     return el;
   }
@@ -425,15 +425,15 @@ const Game = (() => {
     const panel = $('goals-panel');
     panel.innerHTML = '';
 
-    const goalIcons = { box: '📦', stone: '🪨', vase: '🏺' };
     const goalLabels = { box: 'Boxes', stone: 'Stones', vase: 'Vases' };
+    const goalLetters = { box: 'B', stone: 'S', vase: 'V' };
 
     Object.entries(board.goals).forEach(([type, count]) => {
       const item = document.createElement('div');
       item.className = 'goal-item';
       item.dataset.goal = type;
       item.innerHTML = `
-        <div class="goal-icon" style="background:${BLOCK_META[type]?.color || '#666'}">${goalIcons[type] || '?'}</div>
+        <div class="goal-icon" style="background:${BLOCK_META[type]?.color || '#666'}">${goalLetters[type] || '?'}</div>
         <span>${goalLabels[type] || type}</span>
         <span class="goal-count">${board.goalProgress[type]}</span>
       `;
@@ -441,7 +441,7 @@ const Game = (() => {
     });
 
     if (Object.keys(board.goals).length === 0) {
-      panel.innerHTML = '<div class="goal-item">🎯 Clear all blocks!</div>';
+      panel.innerHTML = '<div class="goal-item">Clear all blocks!</div>';
     }
   }
 
@@ -610,26 +610,22 @@ const Game = (() => {
     onWin(score, movesLeft) {
       AudioEngine.win();
       const stars = calcStars(movesLeft);
-      if (AuthManager.isLoggedIn()) {
-        const prev = progress.stars[board.levelNumber] || 0;
-        if (stars > prev) {
-          progress.totalStars += stars - prev;
-          progress.stars[board.levelNumber] = stars;
-        }
-        if (board.levelNumber >= progress.maxLevel && board.levelNumber < LEVELS.length) {
-          progress.maxLevel = board.levelNumber + 1;
-        }
-        const coinReward = 50 + stars * 25 + movesLeft * 5;
-        progress.coins += coinReward;
-        saveProgress();
-        $('win-coins').textContent = `+${coinReward} 🪙`;
-      } else {
-        $('win-coins').textContent = 'Sign in to earn coins!';
+      const prev = progress.stars[board.levelNumber] || 0;
+      if (stars > prev) {
+        progress.totalStars += stars - prev;
+        progress.stars[board.levelNumber] = stars;
       }
+      if (board.levelNumber >= progress.maxLevel && board.levelNumber < LEVELS.length) {
+        progress.maxLevel = board.levelNumber + 1;
+      }
+      const coinReward = 50 + stars * 25 + movesLeft * 5;
+      progress.coins += coinReward;
+      saveProgress();
+      $('win-coins').textContent = `+${coinReward} coins`;
       updateMenuStats();
 
       $('win-score').textContent = score;
-      $('win-stars').textContent = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
+      $('win-stars').innerHTML = renderStarRow(stars);
       updateAuthUI();
       $('win-modal').classList.remove('hidden');
     },
@@ -681,15 +677,42 @@ const Game = (() => {
     board.resetHintTimer();
   }
 
+  function setIcon(el, svg) {
+    if (el) el.innerHTML = svg;
+  }
+
+  function renderStarRow(filled, total = 3) {
+    const star = MTEIcons.star;
+    let html = '';
+    for (let i = 0; i < total; i++) {
+      html += `<span class="star-icon${i < filled ? ' filled' : ''}">${star}</span>`;
+    }
+    return html;
+  }
+
+  function injectStaticIcons() {
+    setIcon($('play-icon'), MTEIcons.play);
+    setIcon($('map-icon'), MTEIcons.map);
+    setIcon($('shop-icon'), MTEIcons.shop);
+    setIcon($('share-icon'), MTEIcons.share);
+    setIcon($('stat-star-icon'), MTEIcons.star);
+    setIcon($('stat-trophy-icon'), MTEIcons.trophy);
+    setIcon($('stat-coin-icon'), MTEIcons.coin);
+    setIcon($('shop-coin-icon'), MTEIcons.coin);
+    [$('profile-back'), $('shop-back'), $('level-back'), $('game-back')].forEach(el => setIcon(el, MTEIcons.back));
+    setIcon($('install-dismiss'), MTEIcons.close);
+    updateMuteButton();
+  }
+
   function updateMuteButton() {
     const btn = $('mute-btn');
     if (btn) {
-      btn.textContent = AudioEngine.isEnabled() ? '🔊' : '🔇';
+      setIcon(btn, AudioEngine.isEnabled() ? MTEIcons.soundOn : MTEIcons.soundOff);
       btn.classList.toggle('muted', !AudioEngine.isEnabled());
     }
     const musicBtn = $('music-btn');
     if (musicBtn) {
-      musicBtn.textContent = AudioEngine.isMusicEnabled() ? '🎵' : '🎵';
+      setIcon(musicBtn, AudioEngine.isMusicEnabled() ? MTEIcons.musicOn : MTEIcons.musicOff);
       musicBtn.classList.toggle('muted', !AudioEngine.isMusicEnabled());
     }
   }
@@ -699,7 +722,7 @@ const Game = (() => {
     PWA.init();
     reloadProgress();
     ParticleSystem.init(particlesCanvas);
-    updateMuteButton();
+    injectStaticIcons();
     renderShop();
     renderProfilePickers();
     updateAuthUI();
@@ -712,6 +735,7 @@ const Game = (() => {
     document.addEventListener('mtepop:authchange', () => {
       reloadProgress();
       renderProfilePickers();
+      if (screens.level?.classList.contains('active')) buildLevelMap();
     });
 
     $('play-btn')?.addEventListener('click', () => {
@@ -761,27 +785,45 @@ const Game = (() => {
     });
 
     $('profile-back')?.addEventListener('click', () => showScreen('menu'));
-    $('signin-prompt-btn')?.addEventListener('click', () => {
-      renderProfilePickers();
-      showScreen('profile');
-    });
-
     $('login-google')?.addEventListener('click', () => {
-      AuthManager.signInGoogle();
-      showToast('Signed in with Google!');
-      showScreen('menu');
+      if (AuthManager.signInGoogle()) {
+        reloadProgress();
+        updateAuthUI();
+        showToast('Signed in with Google');
+        showScreen('menu');
+      }
     });
 
-    $('login-facebook')?.addEventListener('click', () => {
-      AuthManager.signInFacebook();
-      showToast('Signed in with Facebook!');
-      showScreen('menu');
+    $('login-facebook')?.addEventListener('click', async () => {
+      const ok = await AuthManager.signInFacebook();
+      if (ok) {
+        reloadProgress();
+        updateAuthUI();
+        showToast('Signed in with Facebook');
+        showScreen('menu');
+      }
     });
 
     $('login-x')?.addEventListener('click', () => {
-      AuthManager.signInX();
-      showToast('Signed in with X!');
-      showScreen('menu');
+      $('x-username-input').value = '';
+      $('x-login-modal').classList.remove('hidden');
+    });
+
+    $('x-login-cancel')?.addEventListener('click', () => {
+      $('x-login-modal').classList.add('hidden');
+    });
+
+    $('x-login-confirm')?.addEventListener('click', () => {
+      const handle = $('x-username-input')?.value?.trim();
+      if (AuthManager.signInX(handle)) {
+        $('x-login-modal').classList.add('hidden');
+        reloadProgress();
+        updateAuthUI();
+        showToast('Signed in with X');
+        showScreen('menu');
+      } else {
+        showToast('Enter a username');
+      }
     });
 
     $('logout-btn')?.addEventListener('click', () => {
@@ -793,7 +835,7 @@ const Game = (() => {
 
     $('save-profile-btn')?.addEventListener('click', () => {
       const name = $('profile-name-input')?.value?.trim() || 'Player';
-      const avatar = $('profile-avatar')?.textContent || '😎';
+      const avatar = $('profile-avatar')?.textContent || 'P';
       const frame = $('profile-frame')?.style.getPropertyValue('--frame-color')?.trim() || '#6c5ce7';
       AuthManager.setProfile({ name, avatar, frame });
       showToast('Profile saved!');
