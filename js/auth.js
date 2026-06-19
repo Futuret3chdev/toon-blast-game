@@ -76,7 +76,7 @@ const AuthManager = (() => {
       ...saved,
       stars: { ...DEFAULT_PROGRESS.stars, ...(saved.stars || {}) },
       inventory: { ...DEFAULT_PROGRESS.inventory, ...(saved.inventory || {}) },
-      maxLevel: Math.max(1, Math.min(LEVELS.length, saved.maxLevel || 1)),
+      maxLevel: Math.max(1, Math.min(typeof LEVELS !== 'undefined' ? LEVELS.length : 10, saved.maxLevel || 1)),
       coins: typeof saved.coins === 'number' ? saved.coins : DEFAULT_PROGRESS.coins,
       totalStars: saved.totalStars || 0
     };
@@ -270,24 +270,49 @@ const AuthManager = (() => {
     return demoSignIn('google');
   }
 
-  function inviteFriends() {
-    const url = MTEPOP_CONFIG.appUrl;
+  async function inviteFriends() {
+    const url = MTEPOP_CONFIG.appUrl || window.location.href;
     const text = `${MTEPOP_CONFIG.inviteMessage}\n${url}`;
     const title = MTEPOP_CONFIG.appName;
 
     if (navigator.share) {
-      return navigator.share({ title, text, url }).catch(() => copyInvite(url, text));
+      try {
+        await navigator.share({ title, text, url });
+        return { copied: false, message: 'Invite shared!' };
+      } catch (err) {
+        if (err?.name === 'AbortError') {
+          return { copied: false, message: 'Share cancelled' };
+        }
+      }
     }
     return copyInvite(url, text);
   }
 
+  function legacyCopy(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch { /* noop */ }
+    document.body.removeChild(ta);
+    return ok;
+  }
+
   async function copyInvite(url, text) {
     try {
-      await navigator.clipboard.writeText(text);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return { copied: true, message: 'Invite link copied!' };
+      }
+    } catch { /* fallback below */ }
+    if (legacyCopy(text)) {
       return { copied: true, message: 'Invite link copied!' };
-    } catch {
-      return { copied: false, message: url };
     }
+    return { copied: false, message: `Share this link: ${url}` };
   }
 
   function getPlayLevel(progress) {
