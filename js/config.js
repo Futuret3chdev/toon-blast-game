@@ -11,7 +11,7 @@ const MTEPOP_CONFIG = {
   xClientSecret: '',
   discordClientId: '',
   // Public bot username only (no @). Safe to commit.
-  telegramBotUsername: 'futuret3chdev',
+  telegramBotUsername: 'mod_futuret3ch_bot',
   // 'deeplink' = shared multi-game bot. 'widget' = Login Widget (needs exclusive /setdomain).
   telegramAuthMode: 'deeplink',
   // Token NEVER goes in this file. Set in Vercel → Project → Settings → Environment Variables:

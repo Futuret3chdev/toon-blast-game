@@ -7,7 +7,7 @@ export default function handler(req, res) {
     return;
   }
 
-  const bot = (process.env.TELEGRAM_BOT_USERNAME || 'futuret3chdev').replace('@', '');
+  const bot = (process.env.TELEGRAM_BOT_USERNAME || 'mod_futuret3ch_bot').replace('@', '');
   const code = crypto.randomBytes(12).toString('hex');
   createSession(code);
 

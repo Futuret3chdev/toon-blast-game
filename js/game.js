@@ -925,7 +925,7 @@ const Game = (() => {
     }
 
     async function beginTelegramDeepLink() {
-      const bot = MTEPOP_CONFIG.telegramBotUsername?.replace('@', '') || 'futuret3chdev';
+      const bot = MTEPOP_CONFIG.telegramBotUsername?.replace('@', '') || 'mod_futuret3ch_bot';
       const session = await AuthManager.startTelegramDeepLink();
       if (!session?.ok) {
         showToast(session?.error || 'Telegram sign-in unavailable');
