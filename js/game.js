@@ -44,7 +44,8 @@ const Game = (() => {
       inventory: { bomb: 0, rocket_h: 0, disco: 0, extra_moves: 0 }
     };
     try {
-      const saved = JSON.parse(localStorage.getItem('toonblast_progress')) || {};
+      const raw = localStorage.getItem('mtepop_progress') || localStorage.getItem('toonblast_progress');
+      const saved = raw ? JSON.parse(raw) : {};
       return {
         ...defaults,
         ...saved,
@@ -60,7 +61,7 @@ const Game = (() => {
   }
 
   function saveProgress() {
-    localStorage.setItem('toonblast_progress', JSON.stringify(progress));
+    localStorage.setItem('mtepop_progress', JSON.stringify(progress));
   }
 
   function showScreen(name) {
