@@ -271,7 +271,9 @@ const AuthManager = (() => {
   }
 
   async function inviteFriends() {
-    const url = MTEPOP_CONFIG.appUrl || window.location.href;
+    const url = (window.location.origin && window.location.origin !== 'null')
+      ? window.location.origin + window.location.pathname
+      : (MTEPOP_CONFIG.appUrl || window.location.href);
     const text = `${MTEPOP_CONFIG.inviteMessage}\n${url}`;
     const title = MTEPOP_CONFIG.appName;
 
