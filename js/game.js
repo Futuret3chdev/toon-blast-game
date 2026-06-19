@@ -1,13 +1,22 @@
 const Game = (() => {
+  const SHOP_ITEMS = [
+    { id: 'bomb', label: 'Bomb', icon: '💣', price: 100, type: 'bomb' },
+    { id: 'rocket', label: 'Rocket', icon: '🚀', price: 150, type: 'rocket_h' },
+    { id: 'disco', label: 'Disco', icon: '🪩', price: 200, type: 'disco' },
+    { id: 'extra_moves', label: '+5 Moves', icon: '⚡', price: 250, type: 'extra_moves' }
+  ];
+
   let board = null;
   let currentLevel = 1;
+  let placementMode = null;
   let progress = loadProgress();
 
   const $ = id => document.getElementById(id);
   const screens = {
     menu: $('menu-screen'),
     level: $('level-screen'),
-    game: $('game-screen')
+    game: $('game-screen'),
+    shop: $('shop-screen')
   };
 
   const boardEl = $('board');
@@ -15,9 +24,23 @@ const Game = (() => {
 
   function loadProgress() {
     try {
-      return JSON.parse(localStorage.getItem('toonblast_progress')) || { maxLevel: 1, stars: {}, totalStars: 0 };
+      const saved = JSON.parse(localStorage.getItem('toonblast_progress'));
+      return {
+        maxLevel: 1,
+        stars: {},
+        totalStars: 0,
+        coins: 500,
+        inventory: { bomb: 0, rocket_h: 0, disco: 0, extra_moves: 0 },
+        ...saved
+      };
     } catch {
-      return { maxLevel: 1, stars: {}, totalStars: 0 };
+      return {
+        maxLevel: 1,
+        stars: {},
+        totalStars: 0,
+        coins: 500,
+        inventory: { bomb: 0, rocket_h: 0, disco: 0, extra_moves: 0 }
+      };
     }
   }
 
@@ -26,8 +49,11 @@ const Game = (() => {
   }
 
   function showScreen(name) {
-    Object.values(screens).forEach(s => s.classList.remove('active'));
-    screens[name].classList.add('active');
+    Object.values(screens).forEach(s => s?.classList.remove('active'));
+    screens[name]?.classList.add('active');
+    if (name !== 'game') clearPlacementMode();
+    if (name === 'shop') renderShop();
+    updateMenuStats();
   }
 
   function calcStars(movesLeft) {
@@ -40,6 +66,87 @@ const Game = (() => {
     $('menu-level').textContent = progress.maxLevel;
     $('max-level').textContent = progress.maxLevel;
     $('total-stars').textContent = progress.totalStars;
+    $('menu-coins').textContent = progress.coins;
+    $('shop-coins').textContent = progress.coins;
+    updateInventoryHUD();
+  }
+
+  function updateInventoryHUD() {
+    const inv = progress.inventory;
+    $('inv-bomb-count').textContent = inv.bomb || 0;
+    $('inv-rocket-count').textContent = inv.rocket_h || 0;
+    $('inv-disco-count').textContent = inv.disco || 0;
+    $('inv-moves-count').textContent = inv.extra_moves || 0;
+
+    $('inv-bomb').classList.toggle('disabled', !(inv.bomb > 0));
+    $('inv-rocket').classList.toggle('disabled', !(inv.rocket_h > 0));
+    $('inv-disco').classList.toggle('disabled', !(inv.disco > 0));
+    $('inv-moves').classList.toggle('disabled', !(inv.extra_moves > 0));
+  }
+
+  function renderShop() {
+    const list = $('shop-items');
+    list.innerHTML = '';
+    SHOP_ITEMS.forEach(item => {
+      const el = document.createElement('div');
+      el.className = 'shop-item';
+      const invKey = item.type === 'rocket_h' ? 'rocket_h' : item.id === 'extra_moves' ? 'extra_moves' : item.type;
+      const owned = progress.inventory[invKey] || 0;
+      const canAfford = progress.coins >= item.price;
+      el.innerHTML = `
+        <div class="shop-item-icon">${item.icon}</div>
+        <div class="shop-item-info">
+          <span class="shop-item-name">${item.label}</span>
+          <span class="shop-item-owned">Owned: ${owned}</span>
+        </div>
+        <button class="shop-buy-btn ${canAfford ? '' : 'disabled'}" data-item="${item.id}">
+          🪙 ${item.price}
+        </button>
+      `;
+      const btn = el.querySelector('.shop-buy-btn');
+      if (canAfford) {
+        btn.addEventListener('click', () => buyItem(item));
+      }
+      list.appendChild(el);
+    });
+  }
+
+  function buyItem(item) {
+    if (progress.coins < item.price) return;
+    const invKey = item.type === 'rocket_h' ? 'rocket_h' : item.id === 'extra_moves' ? 'extra_moves' : item.type;
+    progress.coins -= item.price;
+    progress.inventory[invKey] = (progress.inventory[invKey] || 0) + 1;
+    saveProgress();
+    AudioEngine.purchase();
+    renderShop();
+    updateMenuStats();
+  }
+
+  function clearPlacementMode() {
+    placementMode = null;
+    boardEl.classList.remove('placement-mode');
+    document.querySelectorAll('.inv-btn.active').forEach(b => b.classList.remove('active'));
+  }
+
+  function startPlacement(type) {
+    if (!board || board.busy) return;
+    const invKey = type;
+    if (!(progress.inventory[invKey] > 0)) return;
+
+    if (type === 'extra_moves') {
+      progress.inventory.extra_moves--;
+      board.addMoves(5);
+      saveProgress();
+      updateInventoryHUD();
+      clearPlacementMode();
+      return;
+    }
+
+    placementMode = type;
+    boardEl.classList.add('placement-mode');
+    document.querySelectorAll('.inv-btn').forEach(b => b.classList.remove('active'));
+    $(`inv-${type === 'rocket_h' ? 'rocket' : type}`)?.classList.add('active');
+    AudioEngine.click();
   }
 
   function buildLevelGrid() {
@@ -176,10 +283,24 @@ const Game = (() => {
     movesEl.textContent = board.moves;
     movesEl.classList.toggle('low', board.moves <= 3);
     $('score-value').textContent = board.score;
+    updateInventoryHUD();
   }
 
   const callbacks = {
     getCellCenter,
+
+    onExplosion(cells, type) {
+      const isBig = type === 'bomb' || type === 'tnt';
+      cells.forEach(({ row, col }) => {
+        const cell = getCellEl(row, col);
+        if (cell) {
+          cell.classList.add(isBig ? 'blast-flash' : 'blast-flash-sm');
+          setTimeout(() => cell.classList.remove('blast-flash', 'blast-flash-sm'), isBig ? 350 : 200);
+        }
+        const center = getCellCenter(row, col);
+        ParticleSystem.burst(center.x, center.y, BLOCK_META[type]?.color || '#ffeaa7', isBig ? 12 : 6);
+      });
+    },
 
     onBlockDestroy(row, col, block) {
       return new Promise(resolve => {
@@ -193,7 +314,7 @@ const Game = (() => {
           el.remove();
           getCellEl(row, col)?.classList.add('empty');
           resolve();
-        }, 300);
+        }, 120);
       });
     },
 
@@ -214,7 +335,7 @@ const Game = (() => {
       cell?.appendChild(el);
       requestAnimationFrame(() => {
         el.style.transform = 'scale(1.2)';
-        setTimeout(() => { el.style.transform = ''; }, 200);
+        setTimeout(() => { el.style.transform = ''; }, 150);
       });
     },
 
@@ -225,11 +346,13 @@ const Game = (() => {
 
         const cellSize = parseFloat(getComputedStyle(boardEl).getPropertyValue('--cell-size')) || 42;
         const delta = (toRow - fromRow) * (cellSize + 3);
+        el.style.transition = 'transform 0.08s cubic-bezier(0.34, 1.2, 0.64, 1)';
         el.style.transform = `translateY(${delta}px)`;
 
         setTimeout(() => {
           const toCell = getCellEl(toRow, toCol);
           const fromCell = getCellEl(fromRow, fromCol);
+          el.style.transition = '';
           el.style.transform = '';
           el.dataset.row = toRow;
           el.dataset.col = toCol;
@@ -237,7 +360,7 @@ const Game = (() => {
           fromCell?.classList.add('empty');
           toCell?.appendChild(el);
           resolve();
-        }, 220);
+        }, 80);
       });
     },
 
@@ -246,12 +369,13 @@ const Game = (() => {
         const cell = getCellEl(row, col);
         const el = createBlockEl(block, row, col);
         const cellSize = parseFloat(getComputedStyle(boardEl).getPropertyValue('--cell-size')) || 42;
+        el.style.transition = 'transform 0.08s cubic-bezier(0.34, 1.2, 0.64, 1)';
         el.style.transform = `translateY(-${cellSize * 2}px)`;
         cell?.classList.remove('empty');
         cell?.appendChild(el);
         requestAnimationFrame(() => {
           el.style.transform = '';
-          setTimeout(resolve, 220);
+          setTimeout(resolve, 80);
         });
       });
     },
@@ -312,10 +436,14 @@ const Game = (() => {
       if (board.levelNumber >= progress.maxLevel && board.levelNumber < LEVELS.length) {
         progress.maxLevel = board.levelNumber + 1;
       }
+
+      const coinReward = 50 + stars * 25 + movesLeft * 5;
+      progress.coins += coinReward;
       saveProgress();
       updateMenuStats();
 
       $('win-score').textContent = score;
+      $('win-coins').textContent = `+${coinReward} 🪙`;
       $('win-stars').textContent = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
       $('win-modal').classList.remove('hidden');
     },
@@ -328,6 +456,24 @@ const Game = (() => {
 
   async function onCellTap(row, col) {
     AudioEngine.init();
+
+    if (placementMode && board && !board.busy) {
+      const block = board.getBlock(row, col);
+      if (block && BLOCK_META[block.type]?.matchColor) {
+        const color = BLOCK_META[block.type].matchColor;
+        const type = placementMode;
+        if (board.placePowerUp(row, col, type, type === 'disco' ? color : null)) {
+          progress.inventory[type]--;
+          saveProgress();
+          updateInventoryHUD();
+          clearPlacementMode();
+        }
+      } else {
+        AudioEngine.invalid();
+      }
+      return;
+    }
+
     await board.handleTap(row, col);
   }
 
@@ -340,6 +486,7 @@ const Game = (() => {
     $('win-modal').classList.add('hidden');
     $('lose-modal').classList.add('hidden');
     $('combo-display').classList.add('hidden');
+    clearPlacementMode();
 
     showScreen('game');
     renderBoard();
@@ -348,12 +495,22 @@ const Game = (() => {
     board.resetHintTimer();
   }
 
+  function updateMuteButton() {
+    const btn = $('mute-btn');
+    if (!btn) return;
+    btn.textContent = AudioEngine.isEnabled() ? '🔊' : '🔇';
+    btn.classList.toggle('muted', !AudioEngine.isEnabled());
+  }
+
   function init() {
     ParticleSystem.init(particlesCanvas);
     updateMenuStats();
+    updateMuteButton();
 
     $('play-btn').addEventListener('click', () => {
       AudioEngine.init();
+      AudioEngine.setEnabled(true);
+      updateMuteButton();
       startLevel(progress.maxLevel);
     });
 
@@ -362,11 +519,29 @@ const Game = (() => {
       showScreen('level');
     });
 
+    $('shop-btn').addEventListener('click', () => {
+      AudioEngine.init();
+      showScreen('shop');
+    });
+
+    $('shop-back').addEventListener('click', () => showScreen('menu'));
     $('level-back').addEventListener('click', () => showScreen('menu'));
     $('game-back').addEventListener('click', () => {
       board?.clearHint();
       showScreen('menu');
     });
+
+    $('mute-btn').addEventListener('click', () => {
+      AudioEngine.init();
+      AudioEngine.toggle();
+      updateMuteButton();
+      AudioEngine.click();
+    });
+
+    $('inv-bomb').addEventListener('click', () => startPlacement('bomb'));
+    $('inv-rocket').addEventListener('click', () => startPlacement('rocket_h'));
+    $('inv-disco').addEventListener('click', () => startPlacement('disco'));
+    $('inv-moves').addEventListener('click', () => startPlacement('extra_moves'));
 
     $('next-level-btn').addEventListener('click', () => {
       const next = Math.min(board.levelNumber + 1, LEVELS.length);
