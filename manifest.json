@@ -1,0 +1,18 @@
+{
+  "name": "Toon Blast — MTECOSYSTEM",
+  "short_name": "Toon Blast",
+  "description": "Tap matching blocks to blast! Made by Futuret3ch and Memetorrent.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#6c5ce7",
+  "theme_color": "#6c5ce7",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
