@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Signing in…</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: system-ui, sans-serif;
+      background: #6c5ce7;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <p id="msg">Completing sign-in…</p>
+  <script>
+    (function () {
+      const params = new URLSearchParams(location.search);
+      const payload = {
+        type: 'mtepop_oauth',
+        provider: sessionStorage.getItem('mtepop_oauth_provider') || '',
+        state: params.get('state') || '',
+        code: params.get('code') || '',
+        error: params.get('error') || params.get('error_description') || ''
+      };
+
+      if (window.opener) {
+        try {
+          window.opener.postMessage(payload, window.location.origin);
+        } catch {
+          window.opener.postMessage(payload, '*');
+        }
+        window.close();
+        return;
+      }
+
+      document.getElementById('msg').textContent = 'Sign-in complete — return to MTE POP.';
+    })();
+  </script>
+</body>
+</html>
