@@ -1,6 +1,8 @@
 const AuthManager = (() => {
   const SESSION_KEY = 'mtepop_session';
   const PROFILE_KEY = 'mtepop_profile';
+  const GUEST_KEY = 'mtepop_progress';
+  const LEGACY_KEY = 'toonblast_progress';
 
   const DEFAULT_PROGRESS = {
     maxLevel: 1,
@@ -12,12 +14,13 @@ const AuthManager = (() => {
 
   const DEFAULT_PROFILE = {
     name: 'Player',
-    avatar: '😎',
+    avatar: 'P',
     frame: '#6c5ce7',
     bio: ''
   };
 
-  const AVATARS = ['😎', '🤩', '🥳', '😺', '🦊', '🐸', '🦄', '👾', '🤖', '👻', '🎮', '💎', '🔥', '⭐', '🌟'];
+  const AVATARS = ['P', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N'];
+  const AVATAR_COLORS = ['#6c5ce7', '#00b894', '#0984e3', '#d63031', '#fdcb6e', '#fd79a8', '#a29bfe', '#2d3436'];
   const FRAMES = ['#6c5ce7', '#00b894', '#d63031', '#0984e3', '#fdcb6e', '#fd79a8', '#2d3436', '#a29bfe'];
 
   let user = null;
@@ -41,7 +44,9 @@ const AuthManager = (() => {
     try {
       const raw = localStorage.getItem(PROFILE_KEY);
       if (!raw) return { ...DEFAULT_PROFILE };
-      return { ...DEFAULT_PROFILE, ...JSON.parse(raw) };
+      const parsed = { ...DEFAULT_PROFILE, ...JSON.parse(raw) };
+      if (parsed.avatar && parsed.avatar.length > 2) parsed.avatar = parsed.avatar.charAt(0).toUpperCase();
+      return parsed;
     } catch {
       return { ...DEFAULT_PROFILE };
     }
@@ -52,7 +57,45 @@ const AuthManager = (() => {
   }
 
   function progressKey() {
-    return user ? `mtepop_save_${user.id}` : null;
+    return user ? `mtepop_save_${user.id}` : GUEST_KEY;
+  }
+
+  function readRawProgress(key) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function normalizeProgress(saved) {
+    if (!saved) return { ...DEFAULT_PROGRESS };
+    return {
+      ...DEFAULT_PROGRESS,
+      ...saved,
+      stars: { ...DEFAULT_PROGRESS.stars, ...(saved.stars || {}) },
+      inventory: { ...DEFAULT_PROGRESS.inventory, ...(saved.inventory || {}) },
+      maxLevel: Math.max(1, Math.min(LEVELS.length, saved.maxLevel || 1)),
+      coins: typeof saved.coins === 'number' ? saved.coins : DEFAULT_PROGRESS.coins,
+      totalStars: saved.totalStars || 0
+    };
+  }
+
+  function mergeProgress(a, b) {
+    const merged = normalizeProgress(a);
+    const other = normalizeProgress(b);
+    merged.maxLevel = Math.max(merged.maxLevel, other.maxLevel);
+    merged.coins = Math.max(merged.coins, other.coins);
+    merged.totalStars = Math.max(merged.totalStars, other.totalStars);
+    Object.keys(other.stars).forEach((lvl) => {
+      const n = Number(lvl);
+      merged.stars[n] = Math.max(merged.stars[n] || 0, other.stars[n] || 0);
+    });
+    Object.keys(other.inventory).forEach((k) => {
+      merged.inventory[k] = Math.max(merged.inventory[k] || 0, other.inventory[k] || 0);
+    });
+    return merged;
   }
 
   function isLoggedIn() {
@@ -68,34 +111,24 @@ const AuthManager = (() => {
   }
 
   function loadProgress() {
-    if (!isLoggedIn()) {
-      return { ...DEFAULT_PROGRESS, maxLevel: 1 };
+    let saved = readRawProgress(progressKey());
+    if (!saved && !isLoggedIn()) {
+      saved = readRawProgress(LEGACY_KEY);
+      if (saved) {
+        localStorage.setItem(GUEST_KEY, JSON.stringify(saved));
+        localStorage.removeItem(LEGACY_KEY);
+      }
     }
-
-    try {
-      const raw = localStorage.getItem(progressKey());
-      const saved = raw ? JSON.parse(raw) : {};
-      return {
-        ...DEFAULT_PROGRESS,
-        ...saved,
-        stars: { ...DEFAULT_PROGRESS.stars, ...(saved.stars || {}) },
-        inventory: { ...DEFAULT_PROGRESS.inventory, ...(saved.inventory || {}) },
-        maxLevel: Math.max(1, saved.maxLevel || 1),
-        coins: typeof saved.coins === 'number' ? saved.coins : DEFAULT_PROGRESS.coins,
-        totalStars: saved.totalStars || 0
-      };
-    } catch {
-      return { ...DEFAULT_PROGRESS };
-    }
+    return normalizeProgress(saved);
   }
 
   function saveProgress(data) {
-    if (!isLoggedIn()) return;
     localStorage.setItem(progressKey(), JSON.stringify(data));
   }
 
   function setProfile(updates) {
     profile = { ...profile, ...updates };
+    if (profile.avatar) profile.avatar = profile.avatar.charAt(0).toUpperCase();
     saveProfile();
     if (user) {
       user.name = profile.name;
@@ -106,17 +139,22 @@ const AuthManager = (() => {
   }
 
   function signIn(account) {
+    const guestProgress = readRawProgress(GUEST_KEY);
     user = {
       id: account.id,
       provider: account.provider,
       name: account.name || profile.name,
-      avatar: account.avatar || profile.avatar,
+      avatar: (account.avatar || profile.avatar).charAt(0).toUpperCase(),
       email: account.email || null
     };
     profile.name = user.name;
     profile.avatar = user.avatar;
     saveSession();
     saveProfile();
+
+    const existing = readRawProgress(progressKey());
+    const merged = mergeProgress(existing, guestProgress);
+    saveProgress(merged);
     dispatchAuthChange();
   }
 
@@ -134,14 +172,14 @@ const AuthManager = (() => {
 
   function demoSignIn(provider) {
     const names = { google: 'Google Player', facebook: 'Facebook Player', x: 'X Player' };
-    const avatars = { google: '🎮', facebook: '👤', x: '🐦' };
     const id = `${provider}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     signIn({
       id,
       provider,
       name: names[provider] || 'Player',
-      avatar: avatars[provider] || '😎'
+      avatar: profile.avatar || 'P'
     });
+    return true;
   }
 
   function initGoogle() {
@@ -190,47 +228,46 @@ const AuthManager = (() => {
 
   function signInFacebook() {
     const appId = MTEPOP_CONFIG.facebookAppId;
-    if (!appId || !window.FB) {
-      demoSignIn('facebook');
-      return;
-    }
-    FB.login((res) => {
-      if (res.authResponse) {
-        FB.api('/me', { fields: 'name,picture' }, (me) => {
-          signIn({
-            id: `facebook_${res.authResponse.userID}`,
-            provider: 'facebook',
-            name: me?.name || 'Facebook Player',
-            avatar: profile.avatar
+    if (!appId || !window.FB) return demoSignIn('facebook');
+    return new Promise((resolve) => {
+      FB.login((res) => {
+        if (res.authResponse) {
+          FB.api('/me', { fields: 'name,picture' }, (me) => {
+            signIn({
+              id: `facebook_${res.authResponse.userID}`,
+              provider: 'facebook',
+              name: me?.name || 'Facebook Player',
+              avatar: profile.avatar
+            });
+            resolve(true);
           });
-        });
-      }
-    }, { scope: 'public_profile' });
+        } else resolve(false);
+      }, { scope: 'public_profile' });
+    });
   }
 
-  function signInX() {
+  function signInX(handle) {
     const clientId = MTEPOP_CONFIG.xClientId;
     if (!clientId) {
-      const handle = prompt('Enter your X @username to link (demo mode):', 'player');
-      if (handle) {
-        signIn({
-          id: `x_${handle.replace('@', '')}`,
-          provider: 'x',
-          name: handle.startsWith('@') ? handle : `@${handle}`,
-          avatar: profile.avatar
-        });
-      }
-      return;
+      const name = (handle || profile.name || 'player').replace('@', '').trim();
+      if (!name) return false;
+      signIn({
+        id: `x_${name}`,
+        provider: 'x',
+        name: name.startsWith('@') ? name : `@${name}`,
+        avatar: profile.avatar
+      });
+      return true;
     }
-    demoSignIn('x');
+    return demoSignIn('x');
   }
 
   function signInGoogle() {
     if (MTEPOP_CONFIG.googleClientId && window.google?.accounts?.id) {
       google.accounts.id.prompt();
-      return;
+      return true;
     }
-    demoSignIn('google');
+    return demoSignIn('google');
   }
 
   function inviteFriends() {
@@ -245,9 +282,8 @@ const AuthManager = (() => {
   }
 
   async function copyInvite(url, text) {
-    const full = `${text}`;
     try {
-      await navigator.clipboard.writeText(full);
+      await navigator.clipboard.writeText(text);
       return { copied: true, message: 'Invite link copied!' };
     } catch {
       return { copied: false, message: url };
@@ -255,7 +291,12 @@ const AuthManager = (() => {
   }
 
   function getPlayLevel(progress) {
-    return isLoggedIn() ? progress.maxLevel : 1;
+    return progress.maxLevel || 1;
+  }
+
+  function avatarColor(letter) {
+    const code = (letter || 'P').charCodeAt(0);
+    return AVATAR_COLORS[code % AVATAR_COLORS.length];
   }
 
   function init() {
@@ -263,23 +304,8 @@ const AuthManager = (() => {
     user = loadSession();
     if (user) {
       profile.name = user.name || profile.name;
-      profile.avatar = user.avatar || profile.avatar;
+      profile.avatar = (user.avatar || profile.avatar).charAt(0).toUpperCase();
     }
-
-    window.handleGoogleCredential = (response) => {
-      try {
-        const payload = JSON.parse(atob(response.credential.split('.')[1]));
-        signIn({
-          id: `google_${payload.sub}`,
-          provider: 'google',
-          name: payload.name,
-          email: payload.email,
-          avatar: profile.avatar
-        });
-      } catch {
-        demoSignIn('google');
-      }
-    };
 
     if (MTEPOP_CONFIG.googleClientId) {
       const script = document.createElement('script');
@@ -318,6 +344,7 @@ const AuthManager = (() => {
     renderGoogleButton,
     inviteFriends,
     getPlayLevel,
+    avatarColor,
     AVATARS,
     FRAMES,
     DEFAULT_PROGRESS
