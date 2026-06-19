@@ -29,7 +29,9 @@ html, body {
 }
 
 body {
-  background: linear-gradient(160deg, var(--bg-top) 0%, var(--bg-bottom) 50%, #74b9ff 100%);
+  background: linear-gradient(160deg, #6c5ce7 0%, #a29bfe 45%, #74b9ff 100%);
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 #app {
@@ -335,10 +337,11 @@ body {
 .board {
   display: grid;
   gap: 3px;
-  background: rgba(0,0,0,0.35);
-  border-radius: 14px;
-  padding: 6px;
-  box-shadow: inset 0 2px 8px rgba(0,0,0,0.3), 0 8px 32px rgba(0,0,0,0.3);
+  background: linear-gradient(180deg, #3d2c6b 0%, #2d1f4e 100%);
+  border-radius: 16px;
+  padding: 8px;
+  border: 3px solid rgba(255,255,255,0.15);
+  box-shadow: inset 0 2px 12px rgba(0,0,0,0.4), 0 10px 40px rgba(0,0,0,0.35);
   position: relative;
   z-index: 1;
 }
@@ -346,49 +349,75 @@ body {
 .cell {
   width: var(--cell-size, 42px);
   height: var(--cell-size, 42px);
-  border-radius: 8px;
+  border-radius: 10px;
   position: relative;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .cell.empty {
-  background: rgba(255,255,255,0.05);
+  background: rgba(0,0,0,0.25);
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.3);
 }
 
 .block {
   width: 100%;
   height: 100%;
-  border-radius: 8px;
+  border-radius: 10px;
   position: absolute;
   top: 0;
   left: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: calc(var(--cell-size, 42px) * 0.45);
   transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border: 2px solid rgba(255,255,255,0.25);
   box-shadow:
-    inset 0 -3px 0 rgba(0,0,0,0.2),
-    inset 0 3px 0 rgba(255,255,255,0.25),
-    0 2px 4px rgba(0,0,0,0.2);
+    inset 0 4px 0 rgba(255,255,255,0.35),
+    inset 0 -5px 0 rgba(0,0,0,0.25),
+    0 4px 0 rgba(0,0,0,0.3),
+    0 6px 12px rgba(0,0,0,0.2);
+  overflow: hidden;
 }
 
+/* Gloss highlight */
 .block::after {
   content: '';
   position: absolute;
-  top: 15%;
-  left: 15%;
-  width: 30%;
-  height: 25%;
-  background: rgba(255,255,255,0.35);
+  top: 8%;
+  left: 10%;
+  width: 40%;
+  height: 30%;
+  background: rgba(255,255,255,0.45);
   border-radius: 50%;
-  filter: blur(1px);
+  pointer-events: none;
 }
 
-.block.red    { background: linear-gradient(145deg, #ff6b81, var(--red)); }
-.block.green  { background: linear-gradient(145deg, #7bed9f, var(--green)); }
-.block.blue   { background: linear-gradient(145deg, #70a1ff, var(--blue)); }
-.block.yellow { background: linear-gradient(145deg, #ffc048, var(--yellow)); }
+.block-face {
+  position: relative;
+  z-index: 1;
+  font-size: calc(var(--cell-size, 42px) * 0.42);
+  line-height: 1;
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,0.35));
+  pointer-events: none;
+}
+
+/* Cube colours — hardcoded so they always render */
+.block.red {
+  background: linear-gradient(160deg, #ffb3be 0%, #ff4757 40%, #c0392b 100%) !important;
+}
+.block.green {
+  background: linear-gradient(160deg, #a8f5c8 0%, #2ed573 40%, #1e8449 100%) !important;
+}
+.block.blue {
+  background: linear-gradient(160deg, #8fa4ff 0%, #3742fa 40%, #1e3799 100%) !important;
+}
+.block.yellow {
+  background: linear-gradient(160deg, #ffe066 0%, #ffa502 40%, #e67e22 100%) !important;
+}
+.block.purple {
+  background: linear-gradient(160deg, #d4b5ff 0%, #a55eea 40%, #6c3483 100%) !important;
+}
 
 .block.box {
   background: linear-gradient(145deg, #d4a574, #8B6914);
