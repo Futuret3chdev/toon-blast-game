@@ -114,8 +114,8 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-lg);
-  padding: calc(3.5rem + var(--safe-top)) var(--space-md) calc(var(--space-lg) + var(--safe-bottom));
+  gap: 1rem;
+  padding: calc(4rem + var(--safe-top)) 1.5rem calc(1.5rem + var(--safe-bottom));
   position: relative;
   z-index: 1;
   overflow-x: hidden;
@@ -123,8 +123,6 @@ body {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   width: 100%;
-  max-width: min(var(--content-max), 100%);
-  margin: 0 auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -133,102 +131,6 @@ body {
   display: none;
   width: 0;
   height: 0;
-}
-
-.menu-hero {
-  text-align: center;
-  width: 100%;
-}
-
-.menu-panel {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  padding: var(--space-md);
-  background: var(--glass-dark);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-}
-
-.btn-menu-main {
-  width: 100%;
-  min-width: unset;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.6rem;
-  padding: 1rem 1.5rem;
-}
-
-.btn-label {
-  font-size: 1.15rem;
-}
-
-.btn-badge {
-  background: rgba(0, 0, 0, 0.2);
-  padding: 0.15rem 0.65rem;
-  border-radius: var(--radius-pill);
-  font-size: 1rem;
-  font-weight: 700;
-}
-
-.menu-nav {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-xs);
-}
-
-.btn-nav {
-  font-family: 'Fredoka', sans-serif;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.25rem;
-  padding: 0.7rem 0.4rem;
-  min-height: 72px;
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  background: var(--glass);
-  color: #fff;
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
-  touch-action: manipulation;
-  transition: transform 0.12s, background 0.12s;
-}
-
-.btn-nav:active {
-  transform: scale(0.96);
-  background: rgba(255, 255, 255, 0.22);
-}
-
-.nav-icon {
-  width: 22px;
-  height: 22px;
-  flex-shrink: 0;
-  opacity: 0.95;
-}
-
-.menu-stats-card {
-  width: 100%;
-  display: flex;
-  align-items: stretch;
-  justify-content: space-between;
-  background: var(--glass-dark);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  padding: 0.85rem 0.5rem;
-}
-
-.stat-divider {
-  width: 1px;
-  background: rgba(255, 255, 255, 0.15);
-  margin: 0.15rem 0;
 }
 
 .logo {
@@ -261,9 +163,9 @@ body {
 }
 
 .tagline {
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 0.95rem;
-  margin-top: 0.35rem;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
 }
 
 .menu-title {
@@ -318,18 +220,16 @@ body {
 .menu-stats {
   display: flex;
   gap: 2rem;
+  margin-top: 1rem;
   color: rgba(255, 255, 255, 0.9);
   font-size: 0.95rem;
 }
 
 .stat {
-  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: 0.15rem;
-  min-width: 0;
 }
 
 .stat-label {
@@ -346,13 +246,21 @@ body {
 }
 
 .brand-panel {
+  margin-top: 1rem;
+  padding: 0.75rem 1.25rem;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 14px;
+  backdrop-filter: blur(6px);
+  max-width: 320px;
   width: 100%;
+}
+
+.brand-footer {
   text-align: center;
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  padding: 0.65rem 1rem;
-  opacity: 0.85;
+  gap: 0.35rem;
 }
 
 .brand-ecosystem {
@@ -1616,8 +1524,8 @@ body {
 /* ── Mobile responsive ── */
 @media (max-width: 380px) {
   .menu-title { font-size: 2.2rem; letter-spacing: 2px; }
-  .btn-nav { min-height: 64px; font-size: 0.75rem; }
-  .nav-icon { font-size: 1.2rem; }
+  .btn-primary, .btn-secondary { min-width: 100%; max-width: 280px; font-size: 1.05rem; }
+  .menu-stats { gap: 1rem; flex-wrap: wrap; justify-content: center; }
   .stat-value { font-size: 1rem; }
   .brand-credits { font-size: 0.55rem; letter-spacing: 1px; }
   .map-station { max-width: 300px; }
@@ -1642,12 +1550,11 @@ body {
 }
 
 @media (max-height: 700px) {
-  .menu-content { gap: var(--space-sm); justify-content: flex-start; padding-top: calc(3rem + var(--safe-top)); }
+  .menu-content { gap: 0.75rem; justify-content: flex-start; padding-top: calc(3rem + var(--safe-top)); }
   .menu-title { font-size: 2rem; }
-  .tagline { font-size: 0.85rem; }
-  .menu-panel { padding: var(--space-sm); }
-  .btn-nav { min-height: 60px; padding: 0.5rem 0.3rem; }
-  .brand-panel { padding: 0.4rem; }
+  .tagline { margin-bottom: 0.25rem; font-size: 0.9rem; }
+  .btn-primary, .btn-secondary { padding: 0.75rem 2rem; }
+  .brand-panel { margin-top: 0.5rem; }
 }
 
 @media (max-height: 640px) {
