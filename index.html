@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="MTE POP">
-  <meta name="theme-color" content="#6c5ce7">
+  <meta name="theme-color" content="#5b4cdb">
   <meta name="format-detection" content="telephone=no">
   <title>MTE POP — Puzzle Adventure</title>
   <base href="/">
@@ -17,31 +17,40 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/style.css?v=10">
 </head>
 <body>
   <div id="app">
     <div id="menu-screen" class="screen active">
       <div class="menu-bg"></div>
-      <div class="menu-top-bar">
-        <button id="profile-btn" class="btn-profile" type="button" title="Settings" aria-label="Settings">⚙️</button>
+      <header class="menu-top-bar">
+        <button id="profile-btn" class="top-pill" type="button" title="Settings" aria-label="Settings">
+          <svg class="top-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32 1.41-1.41"/></svg>
+        </button>
         <div class="menu-top-actions">
-          <button id="music-btn" class="btn-icon" type="button" title="Toggle music" aria-label="Music">🎵</button>
-          <button id="mute-btn" class="btn-icon" type="button" title="Toggle sound" aria-label="Sound">🔊</button>
+          <button id="music-btn" class="top-pill" type="button" title="Toggle music" aria-label="Music" data-on="false">
+            <svg class="top-icon icon-on" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+            <svg class="top-icon icon-off" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25L19.73 21 21 19.73l-9-9L4.27 3z"/></svg>
+          </button>
+          <button id="mute-btn" class="top-pill" type="button" title="Toggle sound" aria-label="Sound" data-on="true">
+            <svg class="top-icon icon-on" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.06A4.494 4.494 0 0 0 16.5 12z"/></svg>
+            <svg class="top-icon icon-off" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.5 12A4.494 4.494 0 0 0 14 7.97v2.21l2.45 2.45c-.03-.2-.05-.41-.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0 0 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25L19.73 21 21 19.73l-9-9L4.27 3z"/></svg>
+          </button>
         </div>
-      </div>
+      </header>
       <div class="menu-content">
-        <p class="tagline menu-title">Tap matching blocks to pop!</p>
+        <h1 class="menu-title">MTE POP</h1>
+        <p class="tagline">Tap matching blocks to pop!</p>
 
-        <button id="play-btn" class="btn-primary" type="button">▶ Play Level <span id="menu-level">1</span></button>
-        <button id="level-select-btn" class="btn-secondary" type="button">🗺 Level Map</button>
-        <button id="shop-btn" class="btn-secondary" type="button">🛒 Shop</button>
-        <button id="settings-btn" class="btn-secondary" type="button">⚙️ Settings</button>
+        <button id="play-btn" class="btn-primary" type="button">Play Level <span id="menu-level">1</span></button>
+        <button id="level-select-btn" class="btn-secondary" type="button">Level Map</button>
+        <button id="shop-btn" class="btn-secondary" type="button">Shop</button>
+        <button id="settings-btn" class="btn-secondary" type="button">Settings</button>
 
         <div class="menu-stats">
-          <div class="stat"><span class="stat-icon">⭐</span><span id="total-stars">0</span> Stars</div>
-          <div class="stat"><span class="stat-icon">🏆</span>Level <span id="max-level">1</span></div>
-          <div class="stat"><span class="stat-icon">🪙</span><span id="menu-coins">500</span></div>
+          <div class="stat"><span class="stat-label">Stars</span><span id="total-stars" class="stat-value">0</span></div>
+          <div class="stat"><span class="stat-label">Level</span><span id="max-level" class="stat-value">1</span></div>
+          <div class="stat"><span class="stat-label">Coins</span><span id="menu-coins" class="stat-value">500</span></div>
         </div>
         <div class="brand-panel">
           <footer class="brand-footer">
@@ -57,69 +66,69 @@
         <button class="btn-back" id="settings-back" type="button" aria-label="Back">←</button>
         <h2>Settings</h2>
       </div>
-      <div class="profile-body">
-        <div id="profile-card" class="profile-card">
-          <div id="profile-frame" class="profile-frame" style="--frame-color:#6c5ce7">
-            <span id="profile-avatar" class="profile-avatar">P</span>
+      <div class="settings-body">
+        <section class="settings-card profile-card-wrap">
+          <div id="profile-card" class="profile-card">
+            <div id="profile-frame" class="profile-frame" style="--frame-color:#6c5ce7">
+              <span id="profile-avatar" class="profile-avatar">P</span>
+            </div>
+            <h3 id="profile-name">Player</h3>
+            <p id="profile-provider" class="profile-provider">Playing locally — sign in to sync</p>
           </div>
-          <h3 id="profile-name">Player</h3>
-          <p id="profile-provider" class="profile-provider">Playing locally — sign in to sync</p>
-        </div>
+        </section>
 
-        <div id="customize-section" class="customize-section">
-          <h4>Customize Profile</h4>
-          <label class="profile-label">Display Name</label>
-          <input id="profile-name-input" class="profile-input" type="text" maxlength="20" placeholder="Your name">
-          <label class="profile-label">Avatar</label>
+        <section id="customize-section" class="settings-card">
+          <h3 class="card-title">Profile</h3>
+          <label class="field-label" for="profile-name-input">Display Name</label>
+          <input id="profile-name-input" class="field-input" type="text" maxlength="20" placeholder="Your name">
+          <label class="field-label">Avatar</label>
           <div id="avatar-picker" class="avatar-picker"></div>
-          <label class="profile-label">Frame Color</label>
+          <label class="field-label">Frame Color</label>
           <div id="frame-picker" class="frame-picker"></div>
-          <button id="save-profile-btn" class="btn-primary" type="button">Save Profile</button>
-        </div>
+          <button id="save-profile-btn" class="btn-primary btn-block" type="button">Save Profile</button>
+        </section>
 
-        <div id="auth-section" class="auth-section">
-          <h4>Sign In</h4>
-          <p class="auth-hint">Optional — sync progress across devices</p>
+        <section id="auth-section" class="settings-card">
+          <h3 class="card-title">Sign In</h3>
+          <p class="card-sub">Optional — sync progress across devices</p>
           <div class="social-login">
             <button id="login-google" class="btn-social btn-google" type="button">
-              <span class="social-badge social-badge-google">G</span>
-              Continue with Google
+              <span class="social-mark social-mark-google" aria-hidden="true"></span>
+              <span>Continue with Google</span>
             </button>
             <div id="google-btn-container" class="google-btn-container"></div>
             <button id="login-facebook" class="btn-social btn-facebook" type="button">
-              <span class="social-badge social-badge-facebook">f</span>
-              Continue with Facebook
+              <span class="social-mark social-mark-facebook" aria-hidden="true"></span>
+              <span>Continue with Facebook</span>
             </button>
             <button id="login-x" class="btn-social btn-x" type="button">
-              <span class="social-badge social-badge-x">𝕏</span>
-              Continue with X
+              <span class="social-mark social-mark-x" aria-hidden="true"></span>
+              <span>Continue with X</span>
             </button>
           </div>
-          <button id="logout-btn" class="btn-secondary hidden" type="button">Sign Out</button>
-        </div>
+          <button id="logout-btn" class="btn-secondary btn-block hidden" type="button">Sign Out</button>
+        </section>
 
-        <div id="invite-section" class="settings-section">
-          <h4>Invite Friends</h4>
-          <p class="settings-hint">Send this link so friends can play MTE POP:</p>
-          <a id="invite-link" class="invite-link" href="#" target="_blank" rel="noopener noreferrer"></a>
+        <section id="invite-section" class="settings-card">
+          <h3 class="card-title">Invite Friends</h3>
+          <p class="card-sub">Tap the link to share or copy</p>
+          <a id="invite-link" class="invite-link" href="https://mte-pop.vercel.app" rel="noopener noreferrer">https://mte-pop.vercel.app</a>
           <div class="invite-actions">
-            <button id="invite-copy-btn" class="btn-secondary" type="button">📋 Copy Link</button>
-            <button id="invite-share-btn" class="btn-secondary" type="button">📤 Share</button>
+            <button id="invite-copy-btn" class="btn-secondary" type="button">Copy Link</button>
+            <button id="invite-share-btn" class="btn-secondary" type="button">Share</button>
           </div>
-        </div>
+        </section>
       </div>
     </div>
 
     <div id="shop-screen" class="screen">
       <div class="screen-header">
         <button class="btn-back" id="shop-back" type="button" aria-label="Back">←</button>
-        <h2>Power-Up Shop</h2>
-        <div class="shop-coins-display">🪙 <span id="shop-coins">500</span></div>
+        <h2>Shop</h2>
+        <div class="shop-coins-display"><span class="coin-icon">●</span> <span id="shop-coins">500</span></div>
       </div>
-      <div id="shop-items" class="shop-list">
-        <div class="shop-loading">Loading shop...</div>
-      </div>
-      <p class="shop-hint">Tap an item to buy it. Use purchased power-ups from the toolbar during levels.</p>
+      <div id="shop-items" class="shop-list"></div>
+      <p class="shop-hint">Buy power-ups here, then use them from the toolbar during levels.</p>
     </div>
 
     <div id="level-screen" class="screen">
@@ -161,7 +170,7 @@
         <p class="modal-score">Score: <span id="win-score">0</span></p>
         <p class="modal-coins" id="win-coins">+50 coins</p>
         <button id="next-level-btn" class="btn-primary" type="button">Next Level</button>
-        <button id="invite-win-btn" class="btn-secondary" type="button">⚙️ Settings</button>
+        <button id="invite-win-btn" class="btn-secondary" type="button">Settings</button>
         <button id="win-menu-btn" class="btn-secondary" type="button">Menu</button>
       </div>
     </div>
@@ -170,8 +179,8 @@
       <div class="modal-content lose">
         <h2>Out of Moves!</h2>
         <p>Don't give up — try again!</p>
-        <button id="retry-btn" class="btn-primary">Retry</button>
-        <button id="lose-menu-btn" class="btn-secondary">Menu</button>
+        <button id="retry-btn" class="btn-primary" type="button">Retry</button>
+        <button id="lose-menu-btn" class="btn-secondary" type="button">Menu</button>
       </div>
     </div>
 
@@ -179,7 +188,7 @@
       <div class="modal-content">
         <h2>Sign in with X</h2>
         <p class="modal-hint">Enter your username to continue</p>
-        <input id="x-username-input" class="profile-input" type="text" maxlength="20" placeholder="@username">
+        <input id="x-username-input" class="field-input" type="text" maxlength="20" placeholder="@username">
         <div class="modal-actions">
           <button id="x-login-confirm" class="btn-primary" type="button">Continue</button>
           <button id="x-login-cancel" class="btn-secondary" type="button">Cancel</button>
@@ -190,13 +199,13 @@
     <div id="toast" class="toast hidden"></div>
   </div>
 
-  <script src="/js/config.js?v=9"></script>
-  <script src="/js/levels.js?v=9"></script>
-  <script src="/js/auth.js?v=9"></script>
-  <script src="/js/audio.js?v=9"></script>
-  <script src="/js/particles.js?v=9"></script>
-  <script src="/js/board.js?v=9"></script>
-  <script src="/js/pwa.js?v=9"></script>
-  <script src="/js/game.js?v=9"></script>
+  <script src="/js/config.js?v=10"></script>
+  <script src="/js/levels.js?v=10"></script>
+  <script src="/js/auth.js?v=10"></script>
+  <script src="/js/audio.js?v=10"></script>
+  <script src="/js/particles.js?v=10"></script>
+  <script src="/js/board.js?v=10"></script>
+  <script src="/js/pwa.js?v=10"></script>
+  <script src="/js/game.js?v=10"></script>
 </body>
 </html>
