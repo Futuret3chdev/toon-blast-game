@@ -1,16 +1,16 @@
-const CACHE = 'mte-pop-v9';
+const CACHE = 'mte-pop-v10';
 const ASSETS = [
   '/',
   '/index.html',
-  '/css/style.css',
-  '/js/config.js',
-  '/js/auth.js',
-  '/js/pwa.js',
-  '/js/levels.js',
-  '/js/audio.js',
-  '/js/particles.js',
-  '/js/board.js',
-  '/js/game.js',
+  '/css/style.css?v=10',
+  '/js/config.js?v=10',
+  '/js/auth.js?v=10',
+  '/js/pwa.js?v=10',
+  '/js/levels.js?v=10',
+  '/js/audio.js?v=10',
+  '/js/particles.js?v=10',
+  '/js/board.js?v=10',
+  '/js/game.js?v=10',
   '/manifest.json',
   '/icon.svg',
   '/icons/icon-192.png',
@@ -35,9 +35,10 @@ self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
   const isScript = url.pathname.endsWith('.js');
+  const isStyle = url.pathname.endsWith('.css');
 
   e.respondWith(
-    (isScript
+    (isScript || isStyle
       ? fetch(e.request).then((res) => {
           if (res.ok) {
             const clone = res.clone();
