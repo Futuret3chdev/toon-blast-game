@@ -1,7 +1,7 @@
 {
-  "name": "MTE POP — MTECOSYSTEM",
+  "name": "MTE POP",
   "short_name": "MTE POP",
-  "description": "Tap matching blocks to pop! Sign in to save progress. Made by Futuret3ch and Memetorrent.",
+  "description": "Tap matching blocks to pop! A puzzle adventure by Futuret3ch.",
   "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
@@ -11,18 +11,29 @@
   "categories": ["games", "entertainment"],
   "icons": [
     {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
       "src": "/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
-    },
-    {
-      "src": "/icon.svg",
-      "sizes": "512x512",
-      "type": "image/svg+xml",
-      "purpose": "maskable"
     }
   ],
-  "screenshots": [],
   "prefer_related_applications": false
 }
