@@ -25,11 +25,15 @@
       <div class="menu-bg"></div>
       <div class="menu-top-bar">
         <button id="profile-btn" class="btn-profile" type="button" title="Profile">
-          <span id="profile-avatar-mini" class="profile-avatar-mini">P</span>
+          <svg class="profile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
         </button>
         <div class="menu-top-actions">
-          <button id="music-btn" class="btn-icon" type="button" title="Toggle music" aria-label="Music"></button>
-          <button id="mute-btn" class="btn-icon" type="button" title="Toggle sound" aria-label="Sound"></button>
+          <button id="music-btn" class="btn-icon" type="button" title="Toggle music" aria-label="Music">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+          </button>
+          <button id="mute-btn" class="btn-icon" type="button" title="Toggle sound" aria-label="Sound">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.06A4.494 4.494 0 0 0 16.5 12zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+          </button>
         </div>
       </div>
       <div class="menu-content">
@@ -39,27 +43,15 @@
         </div>
         <p class="tagline">Tap matching blocks to pop!</p>
 
-        <button id="play-btn" class="btn-primary">
-          <span class="btn-icon-inline" id="play-icon"></span>
-          Play Level <span id="menu-level">1</span>
-        </button>
-        <button id="level-select-btn" class="btn-secondary">
-          <span class="btn-icon-inline" id="map-icon"></span>
-          Level Map
-        </button>
-        <button id="shop-btn" class="btn-secondary">
-          <span class="btn-icon-inline" id="shop-icon"></span>
-          Shop
-        </button>
-        <button id="invite-btn" class="btn-secondary">
-          <span class="btn-icon-inline" id="share-icon"></span>
-          Invite Friends
-        </button>
+        <button id="play-btn" class="btn-primary">▶ Play Level <span id="menu-level">1</span></button>
+        <button id="level-select-btn" class="btn-secondary">🗺 Level Map</button>
+        <button id="shop-btn" class="btn-secondary">🛒 Shop</button>
+        <button id="invite-btn" class="btn-secondary">📨 Invite Friends</button>
 
         <div class="menu-stats">
-          <div class="stat"><span class="stat-svg" id="stat-star-icon"></span><span id="total-stars">0</span> Stars</div>
-          <div class="stat"><span class="stat-svg" id="stat-trophy-icon"></span>Level <span id="max-level">1</span></div>
-          <div class="stat"><span class="stat-svg" id="stat-coin-icon"></span><span id="menu-coins">500</span></div>
+          <div class="stat"><span class="stat-icon">⭐</span><span id="total-stars">0</span> Stars</div>
+          <div class="stat"><span class="stat-icon">🏆</span>Level <span id="max-level">1</span></div>
+          <div class="stat"><span class="stat-icon">🪙</span><span id="menu-coins">500</span></div>
         </div>
         <div class="brand-panel">
           <footer class="brand-footer">
@@ -72,7 +64,7 @@
 
     <div id="profile-screen" class="screen">
       <div class="screen-header">
-        <button class="btn-back" id="profile-back" type="button" aria-label="Back"></button>
+        <button class="btn-back" id="profile-back" type="button" aria-label="Back">←</button>
         <h2>Profile</h2>
       </div>
       <div class="profile-body">
@@ -119,9 +111,9 @@
 
     <div id="shop-screen" class="screen">
       <div class="screen-header">
-        <button class="btn-back" id="shop-back" type="button" aria-label="Back"></button>
+        <button class="btn-back" id="shop-back" type="button" aria-label="Back">←</button>
         <h2>Power-Up Shop</h2>
-        <div class="shop-coins-display"><span class="coin-svg" id="shop-coin-icon"></span> <span id="shop-coins">500</span></div>
+        <div class="shop-coins-display">🪙 <span id="shop-coins">500</span></div>
       </div>
       <div id="shop-items" class="shop-list">
         <div class="shop-loading">Loading shop...</div>
@@ -131,7 +123,7 @@
 
     <div id="level-screen" class="screen">
       <div class="screen-header">
-        <button class="btn-back" id="level-back" type="button" aria-label="Back"></button>
+        <button class="btn-back" id="level-back" type="button" aria-label="Back">←</button>
         <h2>Adventure Map</h2>
       </div>
       <div id="level-map" class="level-map"></div>
@@ -139,7 +131,7 @@
 
     <div id="game-screen" class="screen">
       <div class="game-hud">
-        <button class="btn-back" id="game-back" type="button" aria-label="Back"></button>
+        <button class="btn-back" id="game-back" type="button" aria-label="Back">←</button>
         <div class="hud-level">Level <span id="hud-level">1</span></div>
         <div class="hud-moves">
           <span class="moves-label">Moves</span>
@@ -152,10 +144,10 @@
         <canvas id="particles"></canvas>
       </div>
       <div id="inventory-bar" class="inventory-bar">
-        <button id="inv-bomb" class="inv-btn" type="button" title="Bomb"><span class="inv-label">Bomb</span><span id="inv-bomb-count" class="inv-count">0</span></button>
-        <button id="inv-rocket" class="inv-btn" type="button" title="Rocket"><span class="inv-label">Rocket</span><span id="inv-rocket-count" class="inv-count">0</span></button>
-        <button id="inv-disco" class="inv-btn" type="button" title="Disco"><span class="inv-label">Disco</span><span id="inv-disco-count" class="inv-count">0</span></button>
-        <button id="inv-moves" class="inv-btn" type="button" title="+5 Moves"><span class="inv-label">+5</span><span id="inv-moves-count" class="inv-count">0</span></button>
+        <button id="inv-bomb" class="inv-btn" type="button" title="Bomb"><span class="inv-icon">💣</span><span id="inv-bomb-count" class="inv-count">0</span></button>
+        <button id="inv-rocket" class="inv-btn" type="button" title="Rocket"><span class="inv-icon">🚀</span><span id="inv-rocket-count" class="inv-count">0</span></button>
+        <button id="inv-disco" class="inv-btn" type="button" title="Disco"><span class="inv-icon">🪩</span><span id="inv-disco-count" class="inv-count">0</span></button>
+        <button id="inv-moves" class="inv-btn" type="button" title="+5 Moves"><span class="inv-icon">⚡</span><span id="inv-moves-count" class="inv-count">0</span></button>
       </div>
       <div id="combo-display" class="combo-display hidden"><span id="combo-text">COMBO x2</span></div>
       <div id="score-display" class="score-display">Score: <span id="score-value">0</span></div>
@@ -198,9 +190,8 @@
   </div>
 
   <script src="/js/config.js"></script>
-  <script src="/js/icons.js"></script>
-  <script src="/js/auth.js"></script>
   <script src="/js/levels.js"></script>
+  <script src="/js/auth.js"></script>
   <script src="/js/audio.js"></script>
   <script src="/js/particles.js"></script>
   <script src="/js/board.js"></script>
