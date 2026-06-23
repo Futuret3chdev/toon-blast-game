@@ -13,7 +13,7 @@ const ParticleSystem = (() => {
   }
 
   function resize() {
-    if (!canvas) return;
+    if (!canvas?.parentElement) return;
     const wrapper = canvas.parentElement;
     const rect = wrapper.getBoundingClientRect();
     canvas.width = rect.width * devicePixelRatio;
@@ -24,6 +24,7 @@ const ParticleSystem = (() => {
   }
 
   function burst(x, y, color, count = 12) {
+    if (!ctx) return;
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
       const speed = 2 + Math.random() * 5;
@@ -42,11 +43,13 @@ const ParticleSystem = (() => {
   }
 
   function shockwave(x, y, color = '#ffeaa7', maxRadius = 120) {
+    if (!ctx) return;
     shockwaves.push({ x, y, radius: 8, maxRadius, life: 1, color });
     startLoop();
   }
 
   function rocketTrail(x, y, horizontal) {
+    if (!ctx) return;
     const count = 16;
     for (let i = 0; i < count; i++) {
       particles.push({
@@ -65,6 +68,7 @@ const ParticleSystem = (() => {
   }
 
   function discoBurst(x, y) {
+    if (!ctx) return;
     for (let i = 0; i < 24; i++) {
       const hue = Math.random() * 360;
       particles.push({
@@ -90,6 +94,10 @@ const ParticleSystem = (() => {
   }
 
   function tick() {
+    if (!ctx || !canvas) {
+      animating = false;
+      return;
+    }
     const w = canvas.width / devicePixelRatio;
     const h = canvas.height / devicePixelRatio;
     ctx.clearRect(0, 0, w, h);
@@ -156,6 +164,7 @@ const ParticleSystem = (() => {
   }
 
   function getBoardOffset(boardEl) {
+    if (!canvas?.parentElement || !boardEl) return { left: 0, top: 0 };
     const wrapper = canvas.parentElement;
     const wRect = wrapper.getBoundingClientRect();
     const bRect = boardEl.getBoundingClientRect();

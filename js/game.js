@@ -190,6 +190,23 @@ const Game = (() => {
     if (result?.error) showToast(result.error);
   }
 
+  async function finishTelegramUrlAuth() {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('tg_auth');
+    if (!token) return;
+
+    const result = await AuthManager.exchangeTelegramLoginToken(token);
+    params.delete('tg_auth');
+    const next = `${window.location.pathname || '/'}${params.toString() ? `?${params}` : ''}`;
+    window.history.replaceState({}, '', next);
+
+    if (result?.ok) {
+      await handleAuthResult(result, 'Telegram');
+    } else if (result?.error) {
+      showToast(result.error);
+    }
+  }
+
   function openLevelMap() {
     AudioEngine.init();
     AudioEngine.click();
@@ -937,23 +954,6 @@ const Game = (() => {
       $('telegram-login-modal')?.classList.remove('hidden');
     }
 
-    async function finishTelegramUrlAuth() {
-      const params = new URLSearchParams(window.location.search);
-      const token = params.get('tg_auth');
-      if (!token) return;
-
-      const result = await AuthManager.exchangeTelegramLoginToken(token);
-      params.delete('tg_auth');
-      const next = `${window.location.pathname || '/'}${params.toString() ? `?${params}` : ''}`;
-      window.history.replaceState({}, '', next);
-
-      if (result?.ok) {
-        await handleAuthResult(result, 'Telegram');
-      } else if (result?.error) {
-        showToast(result.error);
-      }
-    }
-
     async function startTelegramSignIn() {
       const mode = MTEPOP_CONFIG.telegramAuthMode || 'deeplink';
       const container = $('telegram-login-container');
@@ -1132,14 +1132,15 @@ const Game = (() => {
     }
 
     bindUI();
-    reloadProgress();
-    finishTelegramUrlAuth();
 
     try {
       ParticleSystem.init(particlesCanvas);
     } catch (err) {
       console.warn('Particles unavailable:', err);
     }
+
+    reloadProgress();
+    finishTelegramUrlAuth().catch((err) => console.warn('Telegram URL auth:', err));
 
     updateMuteButton();
     try { renderShop(); } catch (err) { console.warn('Shop render failed:', err); }
