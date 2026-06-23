@@ -13,9 +13,19 @@ const KEYS = {
 let kvClient = null;
 let kvChecked = false;
 
+function trimEnv(val) {
+  return String(val || '').trim() || null;
+}
+
 function kvCredentials() {
-  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+  const url = trimEnv(
+    process.env.KV_REST_API_URL
+    || process.env.UPSTASH_REDIS_REST_URL
+  );
+  const token = trimEnv(
+    process.env.KV_REST_API_TOKEN
+    || process.env.UPSTASH_REDIS_REST_TOKEN
+  );
   if (!url || !token) return null;
   return { url, token };
 }
@@ -23,15 +33,40 @@ function kvCredentials() {
 async function getKv() {
   if (kvChecked) return kvClient;
   kvChecked = true;
-  const creds = kvCredentials();
-  if (!creds) return null;
   try {
-    const { createClient } = await import('@upstash/redis');
-    kvClient = createClient(creds);
+    const { Redis } = await import('@upstash/redis');
+    const creds = kvCredentials();
+    if (creds?.url && creds?.token) {
+      kvClient = new Redis(creds);
+      await kvClient.ping();
+      return kvClient;
+    }
+    kvClient = Redis.fromEnv();
+    await kvClient.ping();
     return kvClient;
   } catch {
+    kvClient = null;
     return null;
   }
+}
+
+export async function getStorageInfo() {
+  const creds = kvCredentials();
+  const hasEnv = !!(creds?.url && creds?.token)
+    || !!(trimEnv(process.env.KV_REST_API_URL) && trimEnv(process.env.KV_REST_API_TOKEN));
+  const kv = await getKv();
+  let ping = false;
+  if (kv) {
+    try {
+      await kv.set('mtepop:ping', Date.now());
+      ping = true;
+    } catch { /* */ }
+  }
+  return {
+    mode: kv && ping ? 'redis' : 'memory',
+    hasEnv,
+    keys: Object.values(KEYS)
+  };
 }
 
 async function loadKey(key, fallback) {
