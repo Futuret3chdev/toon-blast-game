@@ -958,8 +958,8 @@ const Game = (() => {
           <p class="club-you">Playing as <strong>${profile?.name || user?.name}</strong></p>
           <p class="club-roster-note">Only signed-in players appear in the roster.</p>
           <button id="club-heart-request" class="btn-secondary btn-block" type="button">Request Heart from Club</button>
-          ${!isAdmin ? `<button id="club-leave-btn" class="btn-secondary btn-block" type="button">Leave Club</button>` : ''}
-          ${isAdmin ? `<button id="club-delete-btn" class="btn-danger btn-block" type="button">Delete Club</button>` : ''}
+          <button id="club-leave-btn" class="btn-secondary btn-block" type="button">Leave Club</button>
+          ${isAdmin ? `<button id="club-delete-btn" class="btn-danger btn-block" type="button">Delete Club (Everyone Removed)</button>` : ''}
           <button id="club-refresh-btn" class="btn-secondary btn-block" type="button">Refresh Club</button>
         </section>
 
@@ -1212,9 +1212,20 @@ const Game = (() => {
     });
 
     $('club-leave-btn')?.addEventListener('click', async () => {
+      const user = AuthManager.getUser();
+      const adminLeaving = clubIsAdmin(club, user?.id);
+      const others = (club.members || []).filter(m => String(m.id) !== String(user?.id));
+      let msg = 'Leave this club?';
+      if (adminLeaving && others.length === 0) msg = 'You are the only member — leaving will delete the club. Continue?';
+      else if (adminLeaving && others.length > 0) msg = `Leave and transfer admin to another member?`;
+      if (!confirm(msg)) return;
       try {
-        await SocialManager.leaveClub();
-        showToast('Left club');
+        lastClubRenderSig = '';
+        const result = await SocialManager.leaveClub(club.id);
+        if (result?.disbanded) showToast('Club deleted — you left');
+        else if (result?.transferred) showToast(`Left club — ${result.newAdminName || 'teammate'} is now admin`);
+        else if (result?.cleared) showToast('Club membership cleared');
+        else showToast('Left club');
         renderClub();
       } catch (err) { showToast(err.message); }
     });

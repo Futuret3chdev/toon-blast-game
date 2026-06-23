@@ -195,8 +195,8 @@ const SocialManager = (() => {
     return api('club_revoke_invite', withClubPayload({ targetId }));
   }
 
-  async function leaveClub() {
-    const result = await api('club_leave', withClubPayload());
+  async function leaveClub(clubId) {
+    const result = await api('club_leave', withClubPayload(clubId ? { clubId } : {}));
     clearMyClubCache();
     return result;
   }

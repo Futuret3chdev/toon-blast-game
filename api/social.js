@@ -711,23 +711,53 @@ export default async function handler(req, res) {
       case 'club_leave': {
         if (req.method !== 'POST') return res.status(405).json({ error: 'POST required' });
         const user = sanitizeUser(body);
+        if (!user) return res.status(400).json({ error: 'Invalid user' });
         const players = await getPlayers();
         const clubs = await getClubs();
-        const club = resolveUserClub(players, clubs, user.id, body.clubId);
+        const scrub = scrubStaleMemberships(players, clubs, user.id);
+        let club = scrub.canonical || resolveUserClub(players, clubs, user.id, body.clubId);
+        if (scrub.clubsDirty) await saveClubs(clubs);
+        if (scrub.playersDirty) await savePlayers(players);
+
         if (!club) {
           clearOrphanClubId(players, clubs, user.id);
           await savePlayers(players);
-          return res.status(400).json({ error: 'Not in a club' });
+          return res.status(200).json({ ok: true, cleared: true });
         }
-        if (isClubAdmin(club, user.id)) {
-          return res.status(400).json({ error: 'Admins must use Delete Club to disband' });
+
+        const uid = String(user.id);
+        const adminLeaving = isClubAdmin(club, user.id);
+        const others = (club.members || []).filter(m => String(m.id) !== uid);
+
+        if (adminLeaving && others.length === 0) {
+          delete clubs[club.id];
+          players[user.id] = { ...(players[user.id] || {}), ...user, clubId: null, updatedAt: now() };
+          await saveClubs(clubs);
+          await savePlayers(players);
+          return res.status(200).json({ ok: true, disbanded: true });
         }
-        club.members = club.members.filter(m => String(m.id) !== String(user.id));
-        club.heartRequests = (club.heartRequests || []).filter(r => String(r.id) !== String(user.id));
-        players[user.id] = { ...players[user.id], clubId: null, updatedAt: now() };
+
+        if (adminLeaving && others.length > 0) {
+          const nextAdmin = others.find(m => m.role === 'officer')
+            || [...others].sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0))[0];
+          nextAdmin.role = 'admin';
+          club.adminId = nextAdmin.id;
+        }
+
+        club.members = (club.members || []).filter(m => String(m.id) !== uid);
+        club.heartRequests = (club.heartRequests || []).filter(r => String(r.id) !== uid);
+        club.invites = (club.invites || []).filter(i => String(i.id) !== uid);
+        club.joinRequests = (club.joinRequests || []).filter(r => String(r.id) !== uid);
+        club.cardRequests = (club.cardRequests || []).filter(r => String(r.id) !== uid);
+        players[user.id] = { ...(players[user.id] || {}), ...user, clubId: null, updatedAt: now() };
         await saveClubs(clubs);
         await savePlayers(players);
-        return res.status(200).json({ ok: true });
+        const newAdmin = club.members.find(m => String(m.id) === String(club.adminId));
+        return res.status(200).json({
+          ok: true,
+          transferred: adminLeaving && others.length > 0,
+          newAdminName: adminLeaving && others.length > 0 ? (newAdmin?.name || null) : null
+        });
       }
 
       case 'club_invite': {
