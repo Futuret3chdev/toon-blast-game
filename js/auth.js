@@ -15,6 +15,13 @@ const AuthManager = (() => {
       stickers: {},
       quests: {},
       stats: { levelsWon: 0, boxesPopped: 0, combos: 0, powerUpsUsed: 0 }
+    },
+    hearts: {
+      current: 5,
+      max: 5,
+      lastTick: Date.now(),
+      lastRequestAt: 0,
+      sentTo: {}
     }
   };
 
@@ -89,6 +96,7 @@ const AuthManager = (() => {
         quests: { ...(saved.meta?.quests || {}) },
         stats: { ...DEFAULT_PROGRESS.meta.stats, ...(saved.meta?.stats || {}) }
       },
+      hearts: { ...DEFAULT_PROGRESS.hearts, ...(saved.hearts || {}) },
       maxLevel: Math.max(1, Math.min(typeof LEVELS !== 'undefined' ? LEVELS.length : 50, saved.maxLevel || 1)),
       coins: typeof saved.coins === 'number' ? saved.coins : DEFAULT_PROGRESS.coins,
       totalStars: saved.totalStars || 0

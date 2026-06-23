@@ -2,5 +2,8 @@
   "name": "mte-pop",
   "version": "1.0.0",
   "description": "MTE POP puzzle game — tap matching blocks to pop!",
-  "private": true
+  "private": true,
+  "dependencies": {
+    "@upstash/redis": "^1.34.3"
+  }
 }

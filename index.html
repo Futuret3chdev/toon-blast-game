@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/style.css?v=31">
+  <link rel="stylesheet" href="/css/style.css?v=33">
 </head>
 <body>
   <div id="app">
@@ -28,6 +28,10 @@
           <svg class="top-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32 1.41-1.41"/></svg>
         </button>
         <div class="menu-top-stats">
+          <div class="hearts-hud">
+            <div id="menu-hearts" class="hearts-bar"></div>
+            <span id="hearts-timer" class="hearts-timer">Full</span>
+          </div>
           <span class="hub-stat"><span aria-hidden="true">⭐</span> <span id="total-stars">0</span></span>
           <span class="hub-stat"><span aria-hidden="true">🪙</span> <span id="menu-coins">500</span></span>
         </div>
@@ -65,6 +69,18 @@
             <span class="hub-tile-icon" aria-hidden="true">✨</span>
             <span class="hub-tile-label">Stickers</span>
           </button>
+          <button id="leaderboard-btn" class="hub-tile hub-tile-locked" type="button">
+            <span class="hub-tile-icon" aria-hidden="true">🏆</span>
+            <span class="hub-tile-label">Ranks</span>
+          </button>
+          <button id="club-btn" class="hub-tile hub-tile-locked" type="button">
+            <span class="hub-tile-icon" aria-hidden="true">👥</span>
+            <span class="hub-tile-label">Club</span>
+          </button>
+          <button id="refill-hearts-btn" class="hub-tile" type="button">
+            <span class="hub-tile-icon" aria-hidden="true">❤️</span>
+            <span class="hub-tile-label">+Hearts</span>
+          </button>
           <button id="menu-telegram-btn" class="hub-tile hub-tile-accent" type="button">
             <span class="hub-tile-icon social-mark social-mark-telegram" aria-hidden="true"></span>
             <span class="hub-tile-label">Sign In</span>
@@ -92,9 +108,32 @@
         <h2 class="header-title">Side Quests</h2>
         <div class="header-end" aria-hidden="true"></div>
       </header>
-      <div class="screen-body">
+      <div class="screen-body scroll-panel">
         <p class="screen-intro">Complete quests for coins, stickers &amp; rare code cards!</p>
         <div id="quests-list" class="quests-list"></div>
+      </div>
+    </div>
+
+    <div id="leaderboard-screen" class="screen">
+      <header class="screen-header">
+        <button class="btn-back" id="leaderboard-back" type="button" aria-label="Back">←</button>
+        <h2 class="header-title">Leaderboard</h2>
+        <div class="header-end" aria-hidden="true"></div>
+      </header>
+      <div class="screen-body scroll-panel">
+        <p class="screen-intro">Sign in to compete on the global ranks.</p>
+        <ol id="leaderboard-list" class="leaderboard-list"></ol>
+      </div>
+    </div>
+
+    <div id="club-screen" class="screen">
+      <header class="screen-header">
+        <button class="btn-back" id="club-back" type="button" aria-label="Back">←</button>
+        <h2 class="header-title">Club</h2>
+        <div class="header-end" aria-hidden="true"></div>
+      </header>
+      <div class="screen-body scroll-panel">
+        <div id="club-panel"></div>
       </div>
     </div>
 
@@ -104,7 +143,7 @@
         <h2 class="header-title">Card Collection</h2>
         <div class="header-end" aria-hidden="true"></div>
       </header>
-      <div class="screen-body">
+      <div class="screen-body scroll-panel">
         <p class="screen-intro">Win levels to earn cards. Quests may drop special code cards.</p>
         <div id="collections-grid" class="collections-grid"></div>
       </div>
@@ -116,7 +155,7 @@
         <h2 class="header-title">Stickers</h2>
         <div class="header-end" aria-hidden="true"></div>
       </header>
-      <div class="screen-body">
+      <div class="screen-body scroll-panel">
         <p class="screen-intro">Earn stickers from wins and quest rewards.</p>
         <div id="stickers-grid" class="stickers-grid"></div>
       </div>
@@ -128,7 +167,7 @@
         <h2 class="header-title">Settings</h2>
         <div class="header-end" aria-hidden="true"></div>
       </header>
-      <div class="settings-body">
+      <div class="settings-body scroll-panel">
         <nav class="settings-tabs" aria-label="Settings sections">
           <button type="button" class="settings-tab active" data-settings-tab="sound" aria-selected="true">🔊 Sound</button>
           <button type="button" class="settings-tab" data-settings-tab="account">👤 Account</button>
@@ -237,7 +276,7 @@
         <h2 class="header-title">Adventure Map</h2>
         <div class="header-end" aria-hidden="true"></div>
       </header>
-      <div id="level-grid" class="level-map screen-body"></div>
+      <div id="level-grid" class="level-map screen-body scroll-panel"></div>
     </div>
 
     <div id="game-screen" class="screen">
@@ -257,6 +296,14 @@
         <button id="inv-moves" class="inv-btn" type="button" title="+5 Moves"><span class="inv-icon">⚡</span><span id="inv-moves-count" class="inv-count">0</span></button>
       </div>
       <div id="goals-panel" class="goals-panel"></div>
+      <div id="star-bar" class="star-bar" aria-label="Performance stars">
+        <span class="star-quality" id="star-quality">Perfect run</span>
+        <div class="star-slots">
+          <span class="star-slot" data-tier="1">★</span>
+          <span class="star-slot" data-tier="2">★</span>
+          <span class="star-slot" data-tier="3">★</span>
+        </div>
+      </div>
       <div class="board-wrapper">
         <div id="board" class="board"></div>
         <canvas id="particles"></canvas>
@@ -321,17 +368,19 @@
     <div id="toast" class="toast hidden"></div>
   </div>
 
-  <script src="/js/config.js?v=31"></script>
-  <script src="/js/cards-data.js?v=31"></script>
-  <script src="/js/meta.js?v=31"></script>
-  <script src="/js/mascot.js?v=31"></script>
-  <script src="/js/levels.js?v=31"></script>
-  <script src="/js/oauth.js?v=31"></script>
-  <script src="/js/auth.js?v=31"></script>
-  <script src="/js/audio.js?v=31"></script>
-  <script src="/js/particles.js?v=31"></script>
-  <script src="/js/board.js?v=31"></script>
-  <script src="/js/pwa.js?v=31"></script>
-  <script src="/js/game.js?v=31"></script>
+  <script src="/js/config.js?v=33"></script>
+  <script src="/js/cards-data.js?v=33"></script>
+  <script src="/js/meta.js?v=33"></script>
+  <script src="/js/mascot.js?v=33"></script>
+  <script src="/js/hearts.js?v=33"></script>
+  <script src="/js/social.js?v=33"></script>
+  <script src="/js/levels.js?v=33"></script>
+  <script src="/js/oauth.js?v=33"></script>
+  <script src="/js/auth.js?v=33"></script>
+  <script src="/js/audio.js?v=33"></script>
+  <script src="/js/particles.js?v=33"></script>
+  <script src="/js/board.js?v=33"></script>
+  <script src="/js/pwa.js?v=33"></script>
+  <script src="/js/game.js?v=33"></script>
 </body>
 </html>

@@ -43,18 +43,33 @@ const Game = (() => {
     settings: 'settings-screen',
     quests: 'quests-screen',
     collections: 'collections-screen',
-    stickers: 'stickers-screen'
+    stickers: 'stickers-screen',
+    leaderboard: 'leaderboard-screen',
+    club: 'club-screen'
   };
+
+  let heartsTimer = null;
 
   function ensureProgress() {
     if (!progress) {
       try {
         progress = AuthManager.loadProgress();
+        if (!AuthManager.isLoggedIn()) {
+          const guest = JSON.parse(sessionStorage.getItem('mtepop_guest') || 'null');
+          if (guest?.hearts) progress.hearts = guest.hearts;
+        }
       } catch {
         progress = { ...AuthManager.DEFAULT_PROGRESS };
       }
     }
     return progress;
+  }
+
+  function persistGuestHearts() {
+    if (AuthManager.isLoggedIn()) return;
+    try {
+      sessionStorage.setItem('mtepop_guest', JSON.stringify({ hearts: progress.hearts }));
+    } catch { /* noop */ }
   }
 
   const boardEl = $('board');
@@ -112,7 +127,8 @@ const Game = (() => {
   }
 
   function saveProgress() {
-    AuthManager.saveProgress(progress);
+    if (AuthManager.isLoggedIn()) AuthManager.saveProgress(progress);
+    else persistGuestHearts();
   }
 
   function showToast(msg) {
@@ -173,6 +189,7 @@ const Game = (() => {
         : 'Playing locally — sign in to sync across devices';
     }
     if ($('profile-name-input')) $('profile-name-input').value = prof.name;
+    updateSocialLocks();
   }
 
   function renderProfilePickers() {
@@ -228,7 +245,12 @@ const Game = (() => {
       if (name === 'quests') renderQuests();
       if (name === 'collections') renderCollections();
       if (name === 'stickers') renderStickers();
-      if (name === 'menu') MascotBrain.refresh();
+      if (name === 'leaderboard') renderLeaderboard();
+      if (name === 'club') renderClub();
+      if (name === 'menu') {
+        MascotBrain.refresh();
+        syncSocial();
+      }
       ensureProgress();
       updateMenuStats();
     } catch (err) {
@@ -399,6 +421,271 @@ const Game = (() => {
     }).join('');
   }
 
+  async function renderLeaderboard() {
+    const list = $('leaderboard-list');
+    if (!list) return;
+    if (!AuthManager.isLoggedIn()) {
+      list.innerHTML = '<li class="lb-guest">Sign in to view the leaderboard.</li>';
+      return;
+    }
+    list.innerHTML = '<li class="lb-loading">Loading ranks…</li>';
+    try {
+      const data = await SocialManager.fetchLeaderboard();
+      const user = AuthManager.getUser();
+      list.innerHTML = (data.rows || []).map((row, i) => `
+        <li class="lb-row${row.id === user?.id ? ' me' : ''}">
+          <span class="lb-rank">#${i + 1}</span>
+          <span class="lb-name">${row.name}</span>
+          <span class="lb-score">${row.score}</span>
+        </li>
+      `).join('') || '<li class="lb-guest">No ranks yet — be the first!</li>';
+    } catch {
+      list.innerHTML = '<li class="lb-guest">Could not load leaderboard.</li>';
+    }
+  }
+
+  async function renderClub() {
+    const panel = $('club-panel');
+    if (!panel) return;
+    if (!AuthManager.isLoggedIn()) {
+      panel.innerHTML = '<p class="club-guest">Sign in to join or create a club.</p>';
+      return;
+    }
+    panel.innerHTML = '<p class="club-loading">Loading club…</p>';
+    try {
+      const data = await SocialManager.getClub();
+      const club = data.club;
+      const pendingInvites = data.pendingInvites || [];
+      if (!club) {
+        panel.innerHTML = `
+          ${pendingInvites.length ? `
+            <section class="club-card">
+              <h3>Club Invites</h3>
+              <ul class="club-invites">
+                ${pendingInvites.map(inv => `
+                  <li>
+                    <span>${inv.clubName}</span>
+                    <button type="button" class="btn-primary club-accept-invite" data-id="${inv.clubId}">Accept</button>
+                  </li>
+                `).join('')}
+              </ul>
+            </section>
+          ` : ''}
+          <section class="club-card">
+            <h3>Join a Club</h3>
+            <p>Team up for quests, hearts &amp; card trades.</p>
+            <input id="club-search-input" class="field-input" type="text" placeholder="Search player username">
+            <button id="club-search-btn" class="btn-secondary btn-block" type="button">Search Players</button>
+            <div id="club-search-results" class="club-search-results"></div>
+            <hr class="club-divider">
+            <input id="club-name-input" class="field-input" type="text" maxlength="24" placeholder="New club name">
+            <button id="club-create-btn" class="btn-primary btn-block" type="button">Create Club</button>
+            <input id="club-join-input" class="field-input" type="text" placeholder="Club ID to join">
+            <button id="club-join-btn" class="btn-secondary btn-block" type="button">Join Club</button>
+          </section>
+        `;
+        bindClubCreateUI();
+        panel.querySelectorAll('.club-accept-invite').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            try {
+              await SocialManager.acceptInvite(btn.dataset.id);
+              showToast('Joined club!');
+              renderClub();
+            } catch (e) { showToast(e.message); }
+          });
+        });
+        return;
+      }
+
+      const user = AuthManager.getUser();
+      const isAdmin = club.adminId === user?.id;
+      const canManage = club.members.some(m => m.id === user?.id && (m.role === 'admin' || m.role === 'officer'));
+      const quests = data.teamQuests || [];
+      const qp = club.questProgress || {};
+
+      panel.innerHTML = `
+        <section class="club-card">
+          <h3>${club.name}</h3>
+          <p class="club-id">ID: <code>${club.id}</code></p>
+          <button id="club-heart-request" class="btn-secondary btn-block" type="button">Request Heart from Club</button>
+        </section>
+        <section class="club-card">
+          <h3>Members (${club.members.length})</h3>
+          <ul class="club-members">
+            ${club.members.map(m => `
+              <li>
+                <span>${m.name} <em>${m.role}</em></span>
+                ${m.id !== user?.id ? `<button type="button" class="club-send-heart" data-id="${m.id}">Send ❤️</button>` : ''}
+                ${isAdmin && m.role !== 'admin' ? `
+                  <button type="button" class="club-promote" data-id="${m.id}" data-role="officer">Make Officer</button>
+                  <button type="button" class="club-promote" data-id="${m.id}" data-role="member">Make Member</button>
+                ` : ''}
+              </li>
+            `).join('')}
+          </ul>
+          ${(club.heartRequests || []).length ? `
+            <h4>Heart Requests</h4>
+            <ul class="club-requests">
+              ${club.heartRequests.map(r => `
+                <li>${r.name} ${r.id !== user?.id ? `<button type="button" class="club-fulfill" data-id="${r.id}">Give ❤️</button>` : ''}</li>
+              `).join('')}
+            </ul>
+          ` : ''}
+        </section>
+        <section class="club-card">
+          <h3>Team Quests</h3>
+          ${quests.map(q => {
+            const cur = qp[q.stat] || 0;
+            const pct = Math.min(100, Math.round((cur / q.target) * 100));
+            return `
+              <div class="team-quest">
+                <strong>${q.title}</strong> <span class="quest-diff">${q.difficulty}</span>
+                <p>${q.desc}</p>
+                <div class="quest-bar"><span style="width:${pct}%"></span></div>
+                <span class="quest-progress">${cur} / ${q.target}</span>
+              </div>
+            `;
+          }).join('')}
+        </section>
+        ${canManage ? `
+        <section class="club-card">
+          <h3>Invite Player</h3>
+          <input id="club-invite-input" class="field-input" type="text" placeholder="Player username search">
+          <button id="club-invite-btn" class="btn-secondary btn-block" type="button">Search &amp; Invite</button>
+          <div id="club-invite-results"></div>
+        </section>
+        ` : ''}
+        <section class="club-card">
+          <h3>Send Duplicate Card</h3>
+          <p class="card-sub">Gold/code cards cannot be sent.</p>
+          <select id="club-card-select" class="field-input"></select>
+          <input id="club-card-target" class="field-input" type="text" placeholder="Teammate player ID">
+          <button id="club-card-send" class="btn-secondary btn-block" type="button">Send Card</button>
+        </section>
+      `;
+      bindClubPanelUI(club);
+    } catch (err) {
+      panel.innerHTML = `<p class="club-guest">${err.message || 'Could not load club'}</p>`;
+    }
+  }
+
+  function bindClubCreateUI() {
+    $('club-create-btn')?.addEventListener('click', async () => {
+      const name = $('club-name-input')?.value?.trim();
+      if (!name) return showToast('Enter a club name');
+      try {
+        await SocialManager.createClub(name);
+        showToast('Club created!');
+        renderClub();
+      } catch (e) { showToast(e.message); }
+    });
+    $('club-join-btn')?.addEventListener('click', async () => {
+      const id = $('club-join-input')?.value?.trim();
+      if (!id) return showToast('Enter club ID');
+      try {
+        await SocialManager.joinClub(id);
+        showToast('Joined club!');
+        renderClub();
+      } catch (e) { showToast(e.message); }
+    });
+    $('club-search-btn')?.addEventListener('click', async () => {
+      const q = $('club-search-input')?.value?.trim();
+      const box = $('club-search-results');
+      if (!q || !box) return;
+      try {
+        const data = await SocialManager.searchPlayers(q);
+        box.innerHTML = (data.players || []).map(p =>
+          `<div class="search-row">${p.name} <small>${p.id}</small></div>`
+        ).join('') || '<p>No players found</p>';
+      } catch (e) { showToast(e.message); }
+    });
+  }
+
+  function bindClubPanelUI(club) {
+    const meta = MetaManager.ensureMeta(progress);
+    const select = $('club-card-select');
+    if (select) {
+      const dupes = Object.entries(meta.cards).filter(([id, n]) => n > 1 && SocialManager.isTradeableCard(id));
+      select.innerHTML = dupes.map(([id, n]) => {
+        const c = CARD_BY_ID[id];
+        return `<option value="${id}">${c?.emoji || ''} ${c?.name || id} (×${n})</option>`;
+      }).join('') || '<option value="">No duplicate cards</option>';
+    }
+
+    $('club-heart-request')?.addEventListener('click', async () => {
+      const h = HeartsManager.ensure(progress);
+      if (!HeartsManager.canRequest(h)) return showToast('Heart request cooldown (3 hours)');
+      try {
+        await SocialManager.requestClubHeart();
+        HeartsManager.markRequest(h);
+        saveProgress();
+        showToast('Heart request sent to club!');
+        renderClub();
+      } catch (e) { showToast(e.message); }
+    });
+
+    $('club-panel')?.querySelectorAll('.club-send-heart').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        try {
+          await SocialManager.sendHeart(btn.dataset.id);
+          showToast('Heart sent!');
+        } catch (err) { showToast(err.message); }
+      });
+    });
+    $('club-panel')?.querySelectorAll('.club-fulfill').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        try {
+          await SocialManager.fulfillClubHeart(btn.dataset.id);
+          showToast('Heart gifted!');
+          renderClub();
+        } catch (err) { showToast(err.message); }
+      });
+    });
+    $('club-panel')?.querySelectorAll('.club-promote').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        try {
+          await SocialManager.promoteMember(btn.dataset.id, btn.dataset.role);
+          showToast('Role updated');
+          renderClub();
+        } catch (err) { showToast(err.message); }
+      });
+    });
+
+    $('club-invite-btn')?.addEventListener('click', async () => {
+      const q = $('club-invite-input')?.value?.trim();
+      const box = $('club-invite-results');
+      if (!q || !box) return;
+      try {
+        const data = await SocialManager.searchPlayers(q);
+        box.innerHTML = (data.players || []).map(p => `
+          <button type="button" class="btn-secondary club-invite-target" data-id="${p.id}">Invite ${p.name}</button>
+        `).join('') || '<p>No players found</p>';
+        box.querySelectorAll('.club-invite-target').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            try {
+              await SocialManager.invitePlayer(btn.dataset.id);
+              showToast('Invite sent!');
+            } catch (err) { showToast(err.message); }
+          });
+        });
+      } catch (err) { showToast(err.message); }
+    });
+
+    $('club-card-send')?.addEventListener('click', async () => {
+      const cardId = $('club-card-select')?.value;
+      const targetId = $('club-card-target')?.value?.trim();
+      if (!cardId || !targetId) return showToast('Pick card and teammate ID');
+      try {
+        await SocialManager.sendCard(targetId, cardId);
+        const m = MetaManager.ensureMeta(progress);
+        m.cards[cardId]--;
+        saveProgress();
+        showToast('Card sent!');
+        renderClub();
+      } catch (err) { showToast(err.message); }
+    });
+  }
+
   function showWinRewards(rewards, loggedIn) {
     const wrap = $('win-reward');
     const cardEl = $('win-card-preview');
@@ -436,8 +723,55 @@ const Game = (() => {
     return 1;
   }
 
+  function updateStarBar(movesLeft) {
+    const stars = calcStars(movesLeft);
+    const labels = ['', 'Good', 'Great', 'Perfect'];
+    const quality = $('star-quality');
+    if (quality) quality.textContent = movesLeft <= 0 ? 'No stars' : labels[stars] || 'Good';
+    document.querySelectorAll('#star-bar .star-slot').forEach((el) => {
+      const tier = Number(el.dataset.tier);
+      el.classList.toggle('lit', tier <= stars && movesLeft > 0);
+      el.classList.toggle('dim', movesLeft > 0 && tier > stars);
+    });
+  }
+
+  function updateHeartsHUD() {
+    if (!progress) return;
+    HeartsManager.renderBar($('menu-hearts'), progress);
+    clearInterval(heartsTimer);
+    heartsTimer = setInterval(() => {
+      if (progress) HeartsManager.renderBar($('menu-hearts'), progress);
+    }, 30000);
+  }
+
+  function updateSocialLocks() {
+    const loggedIn = AuthManager.isLoggedIn();
+    $('leaderboard-btn')?.classList.toggle('hub-tile-locked', !loggedIn);
+    $('club-btn')?.classList.toggle('hub-tile-locked', !loggedIn);
+  }
+
+  async function syncSocial() {
+    if (!AuthManager.isLoggedIn()) return;
+    try {
+      await SocialManager.syncProfile(progress);
+      const inbox = await SocialManager.fetchInbox();
+      if (inbox.gifts?.length) {
+        inbox.gifts.forEach(() => HeartsManager.add(progress, 1));
+        for (let i = inbox.gifts.length - 1; i >= 0; i--) {
+          try { await SocialManager.claimHeart(i); } catch { /* noop */ }
+        }
+        saveProgress();
+        updateHeartsHUD();
+        showToast(`Received ${inbox.gifts.length} heart(s) from teammates!`);
+      }
+    } catch { /* offline */ }
+  }
+
   function updateMenuStats() {
     if (!progress) return;
+    HeartsManager.regen(HeartsManager.ensure(progress));
+    updateHeartsHUD();
+    updateSocialLocks();
     const playLevel = AuthManager.getPlayLevel(progress);
     if ($('menu-level')) $('menu-level').textContent = playLevel;
     if ($('max-level')) $('max-level').textContent = progress.maxLevel;
@@ -815,7 +1149,12 @@ const Game = (() => {
         const el = getBlockEl(row, col);
         if (el) el.classList.add('popping');
       });
-      if (cells.length >= 2) reactMascot('match', 700);
+      if (cells.length >= 2) {
+        reactMascot('match', 700);
+        if (AuthManager.isLoggedIn()) {
+          SocialManager.contributeQuest('pops', cells.length).catch(() => {});
+        }
+      }
     },
 
     async onPowerUpExplosion(originRow, originCol, cells, type) {
@@ -922,6 +1261,7 @@ const Game = (() => {
     onMovesChanged(moves) {
       $('moves-count').textContent = moves;
       $('moves-count').classList.toggle('low', moves <= 3);
+      updateStarBar(moves);
       refreshMascot();
     },
 
@@ -990,6 +1330,9 @@ const Game = (() => {
         rewards = MetaManager.awardWinRewards(progress, board.levelNumber);
         questCompletions = MetaManager.checkQuests(progress);
         saveProgress();
+        SocialManager.syncProfile(progress).catch(() => {});
+        SocialManager.contributeQuest('wins', 1).catch(() => {});
+        SocialManager.contributeQuest('stars', stars).catch(() => {});
       } else {
         const preview = JSON.parse(JSON.stringify(progress));
         MetaManager.ensureMeta(preview);
@@ -1044,6 +1387,18 @@ const Game = (() => {
   }
 
   function startLevel(num) {
+    ensureProgress();
+    if (!HeartsManager.canPlay(progress)) {
+      showToast('No hearts! Wait 30 min or refill for 100 coins');
+      return;
+    }
+    if (!HeartsManager.spend(progress)) {
+      showToast('No hearts left');
+      return;
+    }
+    saveProgress();
+    updateHeartsHUD();
+
     currentLevel = num;
     const levelInfo = LEVELS[num - 1];
     if (!levelInfo) return;
@@ -1060,6 +1415,7 @@ const Game = (() => {
     updateHUD();
     board.resetHintTimer();
     board.startMoves = board.moves;
+    updateStarBar(board.moves);
     refreshMascot();
   }
 
@@ -1117,6 +1473,34 @@ const Game = (() => {
         AudioEngine.click();
         showScreen('stickers');
         break;
+      case 'leaderboard-btn':
+        e.preventDefault();
+        if (!AuthManager.isLoggedIn()) { showToast('Sign in to view leaderboard'); return; }
+        AudioEngine.init();
+        AudioEngine.click();
+        showScreen('leaderboard');
+        break;
+      case 'club-btn':
+        e.preventDefault();
+        if (!AuthManager.isLoggedIn()) { showToast('Sign in for clubs'); return; }
+        AudioEngine.init();
+        AudioEngine.click();
+        showScreen('club');
+        break;
+      case 'refill-hearts-btn':
+        e.preventDefault();
+        {
+          const result = HeartsManager.refill(progress);
+          if (result.ok) {
+            saveProgress();
+            updateHeartsHUD();
+            updateMenuStats();
+            showToast('Hearts refilled!');
+          } else {
+            showToast(result.error || 'Cannot refill');
+          }
+        }
+        break;
       case 'invite-win-btn':
         e.preventDefault();
         $('win-modal')?.classList.add('hidden');
@@ -1169,6 +1553,8 @@ const Game = (() => {
     $('quests-back')?.addEventListener('click', () => showScreen('menu'));
     $('collections-back')?.addEventListener('click', () => showScreen('menu'));
     $('stickers-back')?.addEventListener('click', () => showScreen('menu'));
+    $('leaderboard-back')?.addEventListener('click', () => showScreen('menu'));
+    $('club-back')?.addEventListener('click', () => showScreen('menu'));
     document.querySelectorAll('.settings-tab').forEach((tab) => {
       tab.addEventListener('click', () => {
         AudioEngine.click();
