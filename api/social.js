@@ -32,6 +32,28 @@ function canManage(club, userId) {
   return role === 'admin' || role === 'officer';
 }
 
+function isClubAdmin(club, userId) {
+  if (!club || !userId) return false;
+  if (String(club.adminId) === String(userId)) return true;
+  return !!club.members?.some(m => String(m.id) === String(userId) && m.role === 'admin');
+}
+
+function normalizeClub(club, players) {
+  if (!club) return null;
+  if (!club.adminId) {
+    const adm = club.members?.find(m => m.role === 'admin');
+    if (adm) club.adminId = adm.id;
+  }
+  return {
+    ...club,
+    emoji: club.emoji || '🏆',
+    members: (club.members || []).map(m => ({
+      ...m,
+      stars: players[m.id]?.totalStars || 0
+    }))
+  };
+}
+
 export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     res.status(200).end();
@@ -160,16 +182,7 @@ export default async function handler(req, res) {
         const players = await getPlayers();
         const clubs = await getClubs();
         const player = players[user.id];
-        let club = player?.clubId ? clubs[player.clubId] : null;
-        if (club) {
-          club = {
-            ...club,
-            members: (club.members || []).map(m => ({
-              ...m,
-              stars: players[m.id]?.totalStars || 0
-            }))
-          };
-        }
+        let club = player?.clubId ? normalizeClub(clubs[player.clubId], players) : null;
         const pendingInvites = [];
         if (!player?.clubId) {
           for (const c of Object.values(clubs)) {
@@ -220,8 +233,10 @@ export default async function handler(req, res) {
           id,
           name: clubName,
           description: '',
+          emoji: '🏆',
           joinMode: 'open',
           adminId: user.id,
+          cardRequests: [],
           createdAt: now(),
           members: [{ id: user.id, name: user.name, role: 'admin', joinedAt: now() }],
           questProgress: { pops: 0, wins: 0, stars: 0 },
@@ -274,7 +289,7 @@ export default async function handler(req, res) {
         const players = await getPlayers();
         const clubs = await getClubs();
         const club = clubs[players[user.id]?.clubId];
-        if (!club || club.adminId !== user.id) return res.status(403).json({ error: 'Admin only' });
+        if (!club || !isClubAdmin(club, user.id)) return res.status(403).json({ error: 'Admin only' });
 
         if (body.clubName !== undefined) {
           const clubName = String(body.clubName || '').trim().slice(0, 24);
@@ -287,6 +302,10 @@ export default async function handler(req, res) {
         if (body.joinMode !== undefined) {
           const mode = ['open', 'invite', 'approval'].includes(body.joinMode) ? body.joinMode : 'open';
           club.joinMode = mode;
+        }
+        if (body.emoji !== undefined) {
+          const emoji = String(body.emoji || '').trim().slice(0, 8);
+          if (emoji) club.emoji = emoji;
         }
         await saveClubs(clubs);
         return res.status(200).json({ ok: true, club });
@@ -342,8 +361,8 @@ export default async function handler(req, res) {
         const players = await getPlayers();
         const clubs = await getClubs();
         const club = clubs[players[user.id]?.clubId];
-        if (!club || club.adminId !== user.id) return res.status(403).json({ error: 'Admin only' });
-        if (targetId === user.id || targetId === club.adminId) {
+        if (!club || !isClubAdmin(club, user.id)) return res.status(403).json({ error: 'Admin only' });
+        if (targetId === user.id || String(targetId) === String(club.adminId)) {
           return res.status(400).json({ error: 'Cannot remove this member' });
         }
         club.members = club.members.filter(m => m.id !== targetId);
@@ -376,8 +395,8 @@ export default async function handler(req, res) {
         const clubId = players[user.id]?.clubId;
         const club = clubId ? clubs[clubId] : null;
         if (!club) return res.status(400).json({ error: 'Not in a club' });
-        if (club.adminId === user.id) {
-          return res.status(400).json({ error: 'Admin cannot leave — transfer admin or delete club first' });
+        if (isClubAdmin(club, user.id)) {
+          return res.status(400).json({ error: 'Admin cannot leave — remove members first or stay as leader' });
         }
         club.members = club.members.filter(m => m.id !== user.id);
         club.heartRequests = (club.heartRequests || []).filter(r => r.id !== user.id);
@@ -416,7 +435,7 @@ export default async function handler(req, res) {
         const players = await getPlayers();
         const clubs = await getClubs();
         const club = clubs[players[user.id]?.clubId];
-        if (!club || club.adminId !== user.id) return res.status(403).json({ error: 'Admin only' });
+        if (!club || !isClubAdmin(club, user.id)) return res.status(403).json({ error: 'Admin only' });
         const member = club.members.find(m => m.id === targetId);
         if (!member || member.role === 'admin') return res.status(400).json({ error: 'Invalid member' });
         member.role = role;
@@ -557,6 +576,62 @@ export default async function handler(req, res) {
 
         players[user.id] = { ...sender, cards, updatedAt: now() };
         players[targetId] = { ...target, updatedAt: now() };
+        await savePlayers(players);
+        return res.status(200).json({ ok: true });
+      }
+
+      case 'card_request': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'POST required' });
+        const user = sanitizeUser(body);
+        const cardId = String(body.cardId || '').trim();
+        if (!user || !cardId) return res.status(400).json({ error: 'Invalid' });
+        if (CODE_CARD_IDS.has(cardId)) return res.status(400).json({ error: 'Cannot request gold/code cards' });
+
+        const players = await getPlayers();
+        const clubs = await getClubs();
+        const club = clubs[players[user.id]?.clubId];
+        if (!club) return res.status(400).json({ error: 'Join a club to request cards' });
+
+        const owned = (players[user.id]?.cards || {})[cardId] || 0;
+        if (owned > 0) return res.status(400).json({ error: 'You already have this card' });
+
+        club.cardRequests = club.cardRequests || [];
+        club.cardRequests = club.cardRequests.filter(r => !(r.id === user.id && r.cardId === cardId));
+        club.cardRequests.push({ id: user.id, name: user.name, cardId, at: now() });
+        await saveClubs(clubs);
+        return res.status(200).json({ ok: true });
+      }
+
+      case 'card_fulfill_request': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'POST required' });
+        const user = sanitizeUser(body);
+        const targetId = String(body.targetId || '').trim();
+        const cardId = String(body.cardId || '').trim();
+        if (!user || !targetId || !cardId) return res.status(400).json({ error: 'Invalid' });
+        if (CODE_CARD_IDS.has(cardId)) return res.status(400).json({ error: 'Cannot send gold/code cards' });
+
+        const players = await getPlayers();
+        const clubs = await getClubs();
+        const club = clubs[players[user.id]?.clubId];
+        if (!club) return res.status(400).json({ error: 'Not in a club' });
+        if (!club.members.some(m => m.id === targetId)) return res.status(400).json({ error: 'Not a club member' });
+
+        const reqIdx = (club.cardRequests || []).findIndex(r => r.id === targetId && r.cardId === cardId);
+        if (reqIdx < 0) return res.status(404).json({ error: 'No matching request' });
+
+        const sender = players[user.id] || {};
+        const cards = body.cards || sender.cards || {};
+        if ((cards[cardId] || 0) <= 1) return res.status(400).json({ error: 'Need more than 1 of this card' });
+
+        cards[cardId]--;
+        const target = players[targetId] || { id: targetId, name: 'Player' };
+        target.cardGifts = target.cardGifts || [];
+        target.cardGifts.push({ cardId, from: user.name, fromId: user.id, at: now() });
+
+        club.cardRequests.splice(reqIdx, 1);
+        players[user.id] = { ...sender, cards, updatedAt: now() };
+        players[targetId] = { ...target, updatedAt: now() };
+        await saveClubs(clubs);
         await savePlayers(players);
         return res.status(200).json({ ok: true });
       }

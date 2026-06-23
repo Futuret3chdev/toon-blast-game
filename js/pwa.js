@@ -1,7 +1,7 @@
 const PWA = (() => {
   function init() {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js?v=36').catch(() => {});
+      navigator.serviceWorker.register('/sw.js?v=37').catch(() => {});
     }
   }
 

@@ -2679,13 +2679,82 @@ body {
   border-radius: 14px;
   background: linear-gradient(145deg, #a29bfe, #6c5ce7);
   color: #fff;
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: 1.85rem;
+  line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+}
+
+.club-emoji-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.65rem;
+}
+
+.club-emoji-opt {
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 10px;
+  border: 2px solid rgba(255,255,255,0.15);
+  background: rgba(0,0,0,0.2);
+  font-size: 1.15rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.club-emoji-opt.active {
+  border-color: #55efc4;
+  background: rgba(85,239,196,0.2);
+}
+
+.collect-card.card-tap {
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+
+.collect-card.card-tap:active {
+  transform: scale(0.96);
+}
+
+.card-detail-preview {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.75rem;
+}
+
+.card-detail-actions {
+  margin: 0.75rem 0;
+  text-align: left;
+}
+
+.card-req-title {
+  font-size: 0.85rem;
+  margin: 0.75rem 0 0.35rem;
+  color: #ffeaa7;
+}
+
+.card-req-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.card-req-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.card-send-target, .card-fulfill-btn {
+  margin-top: 0.35rem;
+  width: 100%;
 }
 
 .club-profile-meta { flex: 1; min-width: 0; }

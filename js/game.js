@@ -1,4 +1,6 @@
 const Game = (() => {
+  const CLUB_EMBLEMS = ['🏆', '🦁', '🐉', '🌟', '⚡', '🔥', '💎', '🎮', '🌈', '🦊', '👑', '🚀', '🌊', '🍀', '🎯', '⭐'];
+
   const SHOP_ITEMS = [
     { id: 'hearts', label: 'Refill Hearts', iconKey: 'shopHearts', desc: 'Restore all 5 hearts instantly', price: 100, kind: 'hearts' },
     { id: 'bomb', label: 'Bomb', iconKey: 'shopBomb', desc: 'Blasts a 5×5 area!', price: 100, type: 'bomb' },
@@ -286,6 +288,7 @@ const Game = (() => {
     if (result?.ok) {
       reloadProgress();
       updateAuthUI();
+      await syncSocial();
       showToast(`Signed in with ${providerLabel}`);
       showScreen('menu');
       return;
@@ -396,6 +399,14 @@ const Game = (() => {
     }
   }
 
+  function clubIsAdmin(club, userId) {
+    if (!club || !userId) return false;
+    if (String(club.adminId) === String(userId)) return true;
+    return !!club.members?.some(m => String(m.id) === String(userId) && m.role === 'admin');
+  }
+
+  let cardDetailId = null;
+
   function renderCollections() {
     const grid = $('collections-grid');
     if (!grid) return;
@@ -407,6 +418,124 @@ const Game = (() => {
       const count = meta.cards[card.id] || 0;
       return MetaManager.renderCardHTML(full, { owned: count > 0, count });
     }).join('');
+
+    grid.querySelectorAll('.collect-card.card-tap').forEach((el) => {
+      el.addEventListener('click', () => openCardDetail(el.dataset.id));
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openCardDetail(el.dataset.id);
+        }
+      });
+    });
+  }
+
+  async function openCardDetail(cardId) {
+    const card = CARD_BY_ID[cardId];
+    if (!card) return;
+    cardDetailId = cardId;
+    const meta = MetaManager.ensureMeta(progress);
+    const count = meta.cards[cardId] || 0;
+    const tradeable = SocialManager.isTradeableCard(cardId);
+    const loggedIn = AuthManager.isLoggedIn();
+
+    $('card-detail-preview').innerHTML = MetaManager.renderCardHTML(
+      { ...card, type: card.type || 'normal' },
+      { owned: count > 0, count }
+    );
+    $('card-detail-name').textContent = card.name;
+    $('card-detail-meta').textContent = count > 0
+      ? `You own ×${count}${count > 1 ? ' — can send extras' : ''}`
+      : 'Not collected yet';
+
+    const actions = $('card-detail-actions');
+    actions.innerHTML = '';
+
+    if (!loggedIn) {
+      actions.innerHTML = '<p class="card-sub">Sign in to trade cards with your club.</p>';
+    } else if (!tradeable) {
+      actions.innerHTML = '<p class="card-sub">Gold &amp; code cards cannot be traded.</p>';
+    } else if (count === 0) {
+      actions.innerHTML = `
+        <p class="card-sub">Ask clubmates who have a duplicate to send you this card.</p>
+        <button id="card-request-btn" class="btn-primary btn-block" type="button">Request from Club</button>
+      `;
+      $('card-request-btn')?.addEventListener('click', async () => {
+        try {
+          await SocialManager.requestCard(cardId);
+          showToast('Card request posted to your club!');
+          $('card-detail-modal')?.classList.add('hidden');
+        } catch (err) { showToast(err.message); }
+      });
+    } else if (count > 1) {
+      let clubData = null;
+      try { clubData = await SocialManager.getClub(); } catch { /* noop */ }
+      const club = clubData?.club;
+      const requests = (club?.cardRequests || []).filter(r => r.cardId === cardId && r.id !== AuthManager.getUser()?.id);
+
+      actions.innerHTML = `
+        <label class="field-label" for="card-send-search">Send to player</label>
+        <input id="card-send-search" class="field-input" type="text" placeholder="Search username">
+        <button id="card-send-search-btn" class="btn-secondary btn-block" type="button">Find Player</button>
+        <div id="card-send-results"></div>
+        ${requests.length ? `
+          <h4 class="card-req-title">Club requests for this card</h4>
+          <ul class="card-req-list">
+            ${requests.map(r => `
+              <li>
+                <span>${r.name}</span>
+                <button type="button" class="btn-primary card-fulfill-btn" data-id="${r.id}">Send</button>
+              </li>
+            `).join('')}
+          </ul>
+        ` : ''}
+      `;
+
+      $('card-send-search-btn')?.addEventListener('click', async () => {
+        const q = $('card-send-search')?.value?.trim();
+        const box = $('card-send-results');
+        if (!q || !box) return;
+        try {
+          const data = await SocialManager.searchPlayers(q);
+          box.innerHTML = (data.players || []).map(p => `
+            <button type="button" class="btn-secondary card-send-target" data-id="${p.id}">Send to ${p.name}</button>
+          `).join('') || '<p>No players found</p>';
+          box.querySelectorAll('.card-send-target').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+              try {
+                await SocialManager.sendCard(btn.dataset.id, cardId);
+                const m = MetaManager.ensureMeta(progress);
+                m.cards[cardId]--;
+                saveProgress();
+                showToast('Card sent!');
+                $('card-detail-modal')?.classList.add('hidden');
+                renderCollections();
+                updateMenuStats();
+              } catch (err) { showToast(err.message); }
+            });
+          });
+        } catch (err) { showToast(err.message); }
+      });
+
+      actions.querySelectorAll('.card-fulfill-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          try {
+            await SocialManager.fulfillCardRequest(btn.dataset.id, cardId);
+            const m = MetaManager.ensureMeta(progress);
+            m.cards[cardId]--;
+            saveProgress();
+            showToast('Card sent to clubmate!');
+            $('card-detail-modal')?.classList.add('hidden');
+            renderCollections();
+            updateMenuStats();
+          } catch (err) { showToast(err.message); }
+        });
+      });
+    } else {
+      actions.innerHTML = '<p class="card-sub">Win another copy to send this card to a clubmate.</p>';
+    }
+
+    $('card-detail-modal')?.classList.remove('hidden');
   }
 
   function renderStickers() {
@@ -455,6 +584,7 @@ const Game = (() => {
     }
     list.innerHTML = '<li class="lb-loading">Loading ranks…</li>';
     try {
+      await syncSocial();
       const data = await SocialManager.fetchLeaderboard();
       const user = AuthManager.getUser();
       list.innerHTML = (data.rows || []).map((row, i) => `
@@ -624,8 +754,8 @@ const Game = (() => {
 
       const user = AuthManager.getUser();
       const profile = AuthManager.getProfile();
-      const isAdmin = club.adminId === user?.id;
-      const canManage = club.members.some(m => m.id === user?.id && (m.role === 'admin' || m.role === 'officer'));
+      const isAdmin = clubIsAdmin(club, user?.id);
+      const canManage = club.members.some(m => String(m.id) === String(user?.id) && (m.role === 'admin' || m.role === 'officer'));
       const quests = data.teamQuests || [];
       const qp = club.questProgress || {};
       const teamStars = club.members.reduce((s, m) => s + (m.stars || 0), 0);
@@ -636,9 +766,15 @@ const Game = (() => {
       panel.innerHTML = `
         <section class="club-card club-profile-card">
           <div class="club-profile-header">
-            <div class="club-avatar" aria-hidden="true">${(club.name || 'C').charAt(0).toUpperCase()}</div>
+            <div class="club-avatar" aria-hidden="true">${club.emoji || '🏆'}</div>
             <div class="club-profile-meta">
               ${isAdmin ? `
+                <label class="field-label">Team Picture</label>
+                <div id="club-emoji-picker" class="club-emoji-picker">
+                  ${CLUB_EMBLEMS.map(e => `
+                    <button type="button" class="club-emoji-opt${(club.emoji || '🏆') === e ? ' active' : ''}" data-emoji="${e}">${e}</button>
+                  `).join('')}
+                </div>
                 <label class="field-label" for="club-name-edit">Club Name</label>
                 <input id="club-name-edit" class="field-input" type="text" maxlength="24" value="${escAttr(club.name)}">
                 <label class="field-label" for="club-desc-edit">Club Motto</label>
@@ -751,19 +887,6 @@ const Game = (() => {
             `;
           }).join('')}
         </section>
-
-        <section class="club-card">
-          <h3>Send Duplicate Card</h3>
-          <p class="card-sub">Gold/code cards cannot be sent.</p>
-          <select id="club-card-select" class="field-input"></select>
-          <select id="club-card-target" class="field-input">
-            <option value="">Pick teammate</option>
-            ${club.members.filter(m => m.id !== user?.id).map(m =>
-              `<option value="${m.id}">${m.name}</option>`
-            ).join('')}
-          </select>
-          <button id="club-card-send" class="btn-secondary btn-block" type="button">Send Card</button>
-        </section>
       `;
       bindClubPanelUI(club);
     } catch (err) {
@@ -805,22 +928,25 @@ const Game = (() => {
   }
 
   function bindClubPanelUI(club) {
-    const meta = MetaManager.ensureMeta(progress);
-    const select = $('club-card-select');
-    if (select) {
-      const dupes = Object.entries(meta.cards).filter(([id, n]) => n > 1 && SocialManager.isTradeableCard(id));
-      select.innerHTML = dupes.map(([id, n]) => {
-        const c = CARD_BY_ID[id];
-        return `<option value="${id}">${c?.emoji || ''} ${c?.name || id} (×${n})</option>`;
-      }).join('') || '<option value="">No duplicate cards</option>';
-    }
+    let selectedEmoji = club.emoji || '🏆';
+    const picker = $('club-emoji-picker');
+    picker?.querySelectorAll('.club-emoji-opt').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        selectedEmoji = btn.dataset.emoji;
+        picker.querySelectorAll('.club-emoji-opt').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const av = document.querySelector('.club-profile-card .club-avatar');
+        if (av) av.textContent = selectedEmoji;
+      });
+    });
 
     $('club-save-profile')?.addEventListener('click', async () => {
       try {
         await SocialManager.updateClub({
           clubName: $('club-name-edit')?.value?.trim(),
           description: $('club-desc-edit')?.value?.trim(),
-          joinMode: $('club-join-mode')?.value
+          joinMode: $('club-join-mode')?.value,
+          emoji: selectedEmoji
         });
         showToast('Club profile saved!');
         renderClub();
@@ -945,19 +1071,6 @@ const Game = (() => {
       } catch (err) { showToast(err.message); }
     });
 
-    $('club-card-send')?.addEventListener('click', async () => {
-      const cardId = $('club-card-select')?.value;
-      const targetId = $('club-card-target')?.value?.trim();
-      if (!cardId || !targetId) return showToast('Pick card and teammate ID');
-      try {
-        await SocialManager.sendCard(targetId, cardId);
-        const m = MetaManager.ensureMeta(progress);
-        m.cards[cardId]--;
-        saveProgress();
-        showToast('Card sent!');
-        renderClub();
-      } catch (err) { showToast(err.message); }
-    });
   }
 
   function showWinRewards(rewards, loggedIn) {
@@ -1872,7 +1985,12 @@ const Game = (() => {
       reloadProgress();
       renderProfilePickers();
       updateAuthUI();
+      syncSocial().catch(() => {});
       if ($('level-screen')?.classList.contains('active')) buildLevelMap();
+    });
+
+    $('card-detail-close')?.addEventListener('click', () => {
+      $('card-detail-modal')?.classList.add('hidden');
     });
 
     $('play-btn')?.addEventListener('click', () => {

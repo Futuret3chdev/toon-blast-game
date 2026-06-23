@@ -163,6 +163,19 @@ const SocialManager = (() => {
     return api('card_send', { ...user, targetId, cardId, cards: meta.cards });
   }
 
+  async function requestCard(cardId) {
+    const user = userPayload();
+    if (!user) throw new Error('Sign in required');
+    return api('card_request', { ...user, cardId });
+  }
+
+  async function fulfillCardRequest(targetId, cardId) {
+    const user = userPayload();
+    if (!user) throw new Error('Sign in required');
+    const meta = MetaManager.ensureMeta(AuthManager.loadProgress());
+    return api('card_fulfill_request', { ...user, targetId, cardId, cards: meta.cards });
+  }
+
   async function requestClubHeart() {
     const user = userPayload();
     if (!user) throw new Error('Sign in required');
@@ -209,6 +222,8 @@ const SocialManager = (() => {
     fetchInbox,
     claimHeart,
     sendCard,
+    requestCard,
+    fulfillCardRequest,
     requestClubHeart,
     fulfillClubHeart,
     isCodeCard,

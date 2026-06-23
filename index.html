@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/style.css?v=36">
+  <link rel="stylesheet" href="/css/style.css?v=37">
 </head>
 <body>
   <div id="app">
@@ -145,7 +145,7 @@
         <div class="header-end" aria-hidden="true"></div>
       </header>
       <div class="screen-body scroll-panel">
-        <p class="screen-intro">Win levels to earn cards. Quests may drop special code cards.</p>
+        <p class="screen-intro">Tap a card to send duplicates or request missing ones from your club.</p>
         <div id="collections-grid" class="collections-grid"></div>
       </div>
     </div>
@@ -369,23 +369,33 @@
       </div>
     </div>
 
+    <div id="card-detail-modal" class="modal hidden">
+      <div class="modal-content card-detail">
+        <div id="card-detail-preview" class="card-detail-preview"></div>
+        <h2 id="card-detail-name"></h2>
+        <p id="card-detail-meta" class="card-detail-meta"></p>
+        <div id="card-detail-actions" class="card-detail-actions"></div>
+        <button id="card-detail-close" class="btn-secondary btn-block" type="button">Close</button>
+      </div>
+    </div>
+
     <div id="toast" class="toast hidden"></div>
   </div>
 
-  <script src="/js/config.js?v=36"></script>
-  <script src="/js/icons.js?v=36"></script>
-  <script src="/js/cards-data.js?v=36"></script>
-  <script src="/js/meta.js?v=36"></script>
-  <script src="/js/mascot.js?v=36"></script>
-  <script src="/js/hearts.js?v=36"></script>
-  <script src="/js/social.js?v=36"></script>
-  <script src="/js/levels.js?v=36"></script>
-  <script src="/js/oauth.js?v=36"></script>
-  <script src="/js/auth.js?v=36"></script>
-  <script src="/js/audio.js?v=36"></script>
-  <script src="/js/particles.js?v=36"></script>
-  <script src="/js/board.js?v=36"></script>
-  <script src="/js/pwa.js?v=36"></script>
-  <script src="/js/game.js?v=36"></script>
+  <script src="/js/config.js?v=37"></script>
+  <script src="/js/icons.js?v=37"></script>
+  <script src="/js/cards-data.js?v=37"></script>
+  <script src="/js/meta.js?v=37"></script>
+  <script src="/js/mascot.js?v=37"></script>
+  <script src="/js/hearts.js?v=37"></script>
+  <script src="/js/social.js?v=37"></script>
+  <script src="/js/levels.js?v=37"></script>
+  <script src="/js/oauth.js?v=37"></script>
+  <script src="/js/auth.js?v=37"></script>
+  <script src="/js/audio.js?v=37"></script>
+  <script src="/js/particles.js?v=37"></script>
+  <script src="/js/board.js?v=37"></script>
+  <script src="/js/pwa.js?v=37"></script>
+  <script src="/js/game.js?v=37"></script>
 </body>
 </html>

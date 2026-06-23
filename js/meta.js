@@ -140,7 +140,7 @@ const MetaManager = (() => {
     const isCode = card.type === 'code';
     const owned = opts.owned !== false;
     return `
-      <article class="collect-card${owned ? '' : ' locked'}${isCode ? ' code-card' : ''} rarity-${card.rarity || 'common'}" data-id="${card.id}">
+      <article class="collect-card card-tap${owned ? '' : ' locked'}${isCode ? ' code-card' : ''} rarity-${card.rarity || 'common'}" data-id="${card.id}" role="button" tabindex="0">
         <div class="collect-card-art${owned ? '' : ' collect-card-empty'}" style="--set-color:${set.color}">${owned ? card.emoji : ''}</div>
         <div class="collect-card-name">${card.name}</div>
         ${isCode && owned ? `<div class="collect-card-code">${card.code}</div>` : ''}
