@@ -904,9 +904,10 @@ const Game = (() => {
               <p class="club-stats-line"><strong>${teamStars}</strong> team stars · <strong>${club.members.length}</strong>/30 players</p>
             </div>
           </div>
-          <p class="club-you">Playing as <strong>${profile?.name || user?.name}</strong></p>
+          <p class="club-you">Playing as <strong>${profile?.name || user?.name}</strong>${data.fromCache ? ' <small class="club-sync-hint">(syncing…)</small>' : ''}</p>
           <button id="club-heart-request" class="btn-secondary btn-block" type="button">Request Heart from Club</button>
           ${!isAdmin ? `<button id="club-leave-btn" class="btn-secondary btn-block" type="button">Leave Club</button>` : ''}
+          ${isAdmin ? `<button id="club-delete-btn" class="btn-danger btn-block" type="button">Delete Club</button>` : ''}
         </section>
 
         ${canManage && joinRequests.length ? `
@@ -1012,7 +1013,13 @@ const Game = (() => {
         showRanksTab('myclub');
         if (result?.club) SocialManager.cacheMyClub?.(result.club);
         renderClub();
-      } catch (e) { showToast(e.message); }
+      } catch (e) {
+        if ((e.message || '').includes('Already in a club')) {
+          showToast('Stuck in old club — tap Delete Club below, then create again');
+        } else {
+          showToast(e.message);
+        }
+      }
     });
     $('club-join-search-btn')?.addEventListener('click', async () => {
       const q = $('club-join-input')?.value?.trim();
@@ -1073,13 +1080,30 @@ const Game = (() => {
 
     $('club-save-profile')?.addEventListener('click', async () => {
       try {
+        SocialManager.cacheMyClub?.({
+          ...club,
+          name: $('club-name-edit')?.value?.trim() || club.name,
+          description: $('club-desc-edit')?.value?.trim() || '',
+          joinMode: $('club-join-mode')?.value || club.joinMode,
+          emoji: selectedEmoji
+        });
         await SocialManager.updateClub({
+          clubId: club.id,
           clubName: $('club-name-edit')?.value?.trim(),
           description: $('club-desc-edit')?.value?.trim(),
           joinMode: $('club-join-mode')?.value,
           emoji: selectedEmoji
         });
         showToast('Club profile saved!');
+        renderClub();
+      } catch (err) { showToast(err.message); }
+    });
+
+    $('club-delete-btn')?.addEventListener('click', async () => {
+      if (!confirm('Delete this club for all members? This cannot be undone.')) return;
+      try {
+        await SocialManager.deleteClub();
+        showToast('Club deleted');
         renderClub();
       } catch (err) { showToast(err.message); }
     });

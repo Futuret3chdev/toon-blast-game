@@ -23,8 +23,54 @@ function sanitizeUser(body) {
 }
 
 function getMemberRole(club, userId) {
-  const m = club.members?.find(x => x.id === userId);
+  const uid = String(userId);
+  const m = club.members?.find(x => String(x.id) === uid);
   return m?.role || null;
+}
+
+function resolveUserClub(players, clubs, userId, hintedClubId) {
+  const uid = String(userId);
+  const ids = [hintedClubId, players[userId]?.clubId].filter(Boolean).map(String);
+  for (const cid of ids) {
+    if (clubs[cid]) return clubs[cid];
+  }
+  const byMember = Object.values(clubs).find(c =>
+    (c.members || []).some(m => String(m.id) === uid)
+  );
+  if (byMember) return byMember;
+  return Object.values(clubs).find(c => String(c.adminId) === uid) || null;
+}
+
+function repairPlayerClubId(players, userId, club) {
+  if (!club || !userId) return false;
+  const p = players[userId] || {};
+  if (String(p.clubId || '') === String(club.id)) return false;
+  players[userId] = { ...p, clubId: club.id, updatedAt: now() };
+  return true;
+}
+
+function clearOrphanClubId(players, clubs, userId) {
+  const cid = players[userId]?.clubId;
+  if (!cid || clubs[cid]) return false;
+  players[userId] = { ...players[userId], clubId: null, updatedAt: now() };
+  return true;
+}
+
+function ensureAdminMembership(club, user) {
+  if (!club || !user?.id) return false;
+  if (String(club.adminId) !== String(user.id)) return false;
+  club.members = club.members || [];
+  let member = club.members.find(m => String(m.id) === String(user.id));
+  if (!member) {
+    club.members.push({ id: user.id, name: user.name, role: 'admin', joinedAt: now() });
+    return true;
+  }
+  if (member.role !== 'admin') {
+    member.role = 'admin';
+    return true;
+  }
+  if (!club.adminId) club.adminId = user.id;
+  return false;
 }
 
 function canManage(club, userId) {
@@ -296,16 +342,25 @@ export default async function handler(req, res) {
         const players = await getPlayers();
         const clubs = await getClubs();
         const player = players[user.id];
-        let club = player?.clubId ? normalizeClub(clubs[player.clubId], players) : null;
+        let rawClub = resolveUserClub(players, clubs, user.id);
+        let playersDirty = false;
+        if (rawClub) {
+          playersDirty = repairPlayerClubId(players, user.id, rawClub) || playersDirty;
+          ensureAdminMembership(rawClub, user);
+        } else {
+          playersDirty = clearOrphanClubId(players, clubs, user.id) || playersDirty;
+        }
+        if (playersDirty) await savePlayers(players);
+        const club = rawClub ? normalizeClub(rawClub, players) : null;
         const pendingInvites = [];
-        if (!player?.clubId) {
+        if (!club) {
           for (const c of Object.values(clubs)) {
-            if ((c.invites || []).some(i => i.id === user.id)) {
-              pendingInvites.push({ clubId: c.id, clubName: c.name });
+            if ((c.invites || []).some(i => String(i.id) === String(user.id))) {
+              pendingInvites.push({ clubId: c.id, clubName: c.name, emoji: c.emoji || '🏆' });
             }
           }
         }
-        return res.status(200).json({ club, teamQuests: TEAM_QUESTS, player: player || null, pendingInvites });
+        return res.status(200).json({ club, teamQuests: TEAM_QUESTS, player: players[user.id] || player || null, pendingInvites });
       }
 
       case 'club_accept_invite': {
@@ -318,8 +373,9 @@ export default async function handler(req, res) {
         const clubs = await getClubs();
         const club = clubs[joinId];
         if (!club) return res.status(404).json({ error: 'Club not found' });
-        if (players[user.id]?.clubId) return res.status(400).json({ error: 'Already in a club' });
-        if (!(club.invites || []).some(i => i.id === user.id)) {
+        clearOrphanClubId(players, clubs, user.id);
+        if (resolveUserClub(players, clubs, user.id)) return res.status(400).json({ error: 'Already in a club' });
+        if (!(club.invites || []).some(i => String(i.id) === String(user.id))) {
           return res.status(403).json({ error: 'No invite for this club' });
         }
         if (club.members.length >= 30) return res.status(400).json({ error: 'Club is full' });
@@ -340,7 +396,9 @@ export default async function handler(req, res) {
 
         const players = await getPlayers();
         const clubs = await getClubs();
-        if (players[user.id]?.clubId) return res.status(400).json({ error: 'Already in a club' });
+        clearOrphanClubId(players, clubs, user.id);
+        const existingClub = resolveUserClub(players, clubs, user.id);
+        if (existingClub) return res.status(400).json({ error: 'Already in a club — delete it first or leave' });
 
         const id = clubId();
         clubs[id] = {
@@ -390,7 +448,8 @@ export default async function handler(req, res) {
 
         const club = clubs[joinId];
         if (!club) return res.status(404).json({ error: 'Club not found' });
-        if (players[user.id]?.clubId) return res.status(400).json({ error: 'Already in a club' });
+        clearOrphanClubId(players, clubs, user.id);
+        if (resolveUserClub(players, clubs, user.id)) return res.status(400).json({ error: 'Already in a club' });
         if (club.members.length >= 30) return res.status(400).json({ error: 'Club is full' });
 
         const joinMode = club.joinMode || 'open';
@@ -399,7 +458,7 @@ export default async function handler(req, res) {
         }
         if (joinMode === 'approval') {
           club.joinRequests = club.joinRequests || [];
-          if (club.joinRequests.some(r => r.id === user.id)) {
+          if (club.joinRequests.some(r => String(r.id) === String(user.id))) {
             return res.status(400).json({ error: 'Join request already pending' });
           }
           club.joinRequests.push({ id: user.id, name: user.name, at: now() });
@@ -417,10 +476,14 @@ export default async function handler(req, res) {
       case 'club_update': {
         if (req.method !== 'POST') return res.status(405).json({ error: 'POST required' });
         const user = sanitizeUser(body);
+        if (!user) return res.status(400).json({ error: 'Invalid user' });
         const players = await getPlayers();
         const clubs = await getClubs();
-        const club = clubs[players[user.id]?.clubId];
-        if (!club || !isClubAdmin(club, user.id)) return res.status(403).json({ error: 'Admin only' });
+        const club = resolveUserClub(players, clubs, user.id, body.clubId);
+        if (!club) return res.status(404).json({ error: 'Club not found on server — delete stale club and recreate' });
+        ensureAdminMembership(club, user);
+        if (!isClubAdmin(club, user.id)) return res.status(403).json({ error: 'Admin only' });
+        const playersDirty = repairPlayerClubId(players, user.id, club);
 
         if (body.clubName !== undefined) {
           const clubName = String(body.clubName || '').trim().slice(0, 24);
@@ -439,7 +502,33 @@ export default async function handler(req, res) {
           if (emoji) club.emoji = emoji;
         }
         await saveClubs(clubs);
-        return res.status(200).json({ ok: true, club });
+        if (playersDirty) await savePlayers(players);
+        return res.status(200).json({ ok: true, club: normalizeClub(club, players) });
+      }
+
+      case 'club_delete': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'POST required' });
+        const user = sanitizeUser(body);
+        if (!user) return res.status(400).json({ error: 'Invalid user' });
+        const players = await getPlayers();
+        const clubs = await getClubs();
+        const club = resolveUserClub(players, clubs, user.id, body.clubId);
+        if (!club) {
+          clearOrphanClubId(players, clubs, user.id);
+          await savePlayers(players);
+          return res.status(200).json({ ok: true, cleared: true });
+        }
+        ensureAdminMembership(club, user);
+        if (!isClubAdmin(club, user.id)) return res.status(403).json({ error: 'Admin only' });
+        for (const m of club.members || []) {
+          if (players[m.id] && String(players[m.id].clubId) === String(club.id)) {
+            players[m.id] = { ...players[m.id], clubId: null, updatedAt: now() };
+          }
+        }
+        delete clubs[club.id];
+        await saveClubs(clubs);
+        await savePlayers(players);
+        return res.status(200).json({ ok: true, deleted: club.id });
       }
 
       case 'club_approve_join': {
@@ -448,8 +537,9 @@ export default async function handler(req, res) {
         const targetId = String(body.targetId || '').trim();
         const players = await getPlayers();
         const clubs = await getClubs();
-        const club = clubs[players[user.id]?.clubId];
+        const club = resolveUserClub(players, clubs, user.id, body.clubId);
         if (!club || !canManage(club, user.id)) return res.status(403).json({ error: 'No permission' });
+        repairPlayerClubId(players, user.id, club);
         if (club.members.length >= 30) return res.status(400).json({ error: 'Club is full' });
         const reqIdx = (club.joinRequests || []).findIndex(r => r.id === targetId);
         if (reqIdx < 0) return res.status(404).json({ error: 'No join request' });
@@ -478,7 +568,7 @@ export default async function handler(req, res) {
         const targetId = String(body.targetId || '').trim();
         const players = await getPlayers();
         const clubs = await getClubs();
-        const club = clubs[players[user.id]?.clubId];
+        const club = resolveUserClub(players, clubs, user.id, body.clubId);
         if (!club || !canManage(club, user.id)) return res.status(403).json({ error: 'No permission' });
         club.joinRequests = (club.joinRequests || []).filter(r => r.id !== targetId);
         await saveClubs(clubs);
@@ -491,12 +581,14 @@ export default async function handler(req, res) {
         const targetId = String(body.targetId || '').trim();
         const players = await getPlayers();
         const clubs = await getClubs();
-        const club = clubs[players[user.id]?.clubId];
-        if (!club || !isClubAdmin(club, user.id)) return res.status(403).json({ error: 'Admin only' });
+        const club = resolveUserClub(players, clubs, user.id, body.clubId);
+        if (!club) return res.status(404).json({ error: 'Club not found' });
+        ensureAdminMembership(club, user);
+        if (!isClubAdmin(club, user.id)) return res.status(403).json({ error: 'Admin only' });
         if (targetId === user.id || String(targetId) === String(club.adminId)) {
           return res.status(400).json({ error: 'Cannot remove this member' });
         }
-        club.members = club.members.filter(m => m.id !== targetId);
+        club.members = club.members.filter(m => String(m.id) !== String(targetId));
         if (players[targetId]?.clubId === club.id) {
           players[targetId] = { ...players[targetId], clubId: null, updatedAt: now() };
           await savePlayers(players);
@@ -511,9 +603,9 @@ export default async function handler(req, res) {
         const targetId = String(body.targetId || '').trim();
         const players = await getPlayers();
         const clubs = await getClubs();
-        const club = clubs[players[user.id]?.clubId];
+        const club = resolveUserClub(players, clubs, user.id, body.clubId);
         if (!club || !canManage(club, user.id)) return res.status(403).json({ error: 'No permission' });
-        club.invites = (club.invites || []).filter(i => i.id !== targetId);
+        club.invites = (club.invites || []).filter(i => String(i.id) !== String(targetId));
         await saveClubs(clubs);
         return res.status(200).json({ ok: true });
       }
@@ -523,14 +615,17 @@ export default async function handler(req, res) {
         const user = sanitizeUser(body);
         const players = await getPlayers();
         const clubs = await getClubs();
-        const clubId = players[user.id]?.clubId;
-        const club = clubId ? clubs[clubId] : null;
-        if (!club) return res.status(400).json({ error: 'Not in a club' });
-        if (isClubAdmin(club, user.id)) {
-          return res.status(400).json({ error: 'Admin cannot leave — remove members first or stay as leader' });
+        const club = resolveUserClub(players, clubs, user.id, body.clubId);
+        if (!club) {
+          clearOrphanClubId(players, clubs, user.id);
+          await savePlayers(players);
+          return res.status(400).json({ error: 'Not in a club' });
         }
-        club.members = club.members.filter(m => m.id !== user.id);
-        club.heartRequests = (club.heartRequests || []).filter(r => r.id !== user.id);
+        if (isClubAdmin(club, user.id)) {
+          return res.status(400).json({ error: 'Admins must use Delete Club to disband' });
+        }
+        club.members = club.members.filter(m => String(m.id) !== String(user.id));
+        club.heartRequests = (club.heartRequests || []).filter(r => String(r.id) !== String(user.id));
         players[user.id] = { ...players[user.id], clubId: null, updatedAt: now() };
         await saveClubs(clubs);
         await savePlayers(players);
@@ -546,13 +641,11 @@ export default async function handler(req, res) {
 
         const players = await getPlayers();
         const clubs = await getClubs();
-        let club = null;
-        const hintedClubId = String(body.clubId || players[user.id]?.clubId || '').trim();
-        if (hintedClubId) club = clubs[hintedClubId];
-        if (!club) {
-          club = Object.values(clubs).find(c => canManage(c, user.id) || isClubAdmin(c, user.id));
-        }
-        if (!club || !canManage(club, user.id)) return res.status(403).json({ error: 'No permission — officers and admins can invite' });
+        const club = resolveUserClub(players, clubs, user.id, body.clubId);
+        if (!club) return res.status(404).json({ error: 'Club not found' });
+        ensureAdminMembership(club, user);
+        repairPlayerClubId(players, user.id, club);
+        if (!canManage(club, user.id)) return res.status(403).json({ error: 'No permission — officers and admins can invite' });
 
         let target = targetId ? players[targetId] : null;
         if (!target && targetName) {
@@ -586,9 +679,11 @@ export default async function handler(req, res) {
         const role = body.role === 'officer' ? 'officer' : 'member';
         const players = await getPlayers();
         const clubs = await getClubs();
-        const club = clubs[players[user.id]?.clubId];
-        if (!club || !isClubAdmin(club, user.id)) return res.status(403).json({ error: 'Admin only' });
-        const member = club.members.find(m => m.id === targetId);
+        const club = resolveUserClub(players, clubs, user.id, body.clubId);
+        if (!club) return res.status(404).json({ error: 'Club not found' });
+        ensureAdminMembership(club, user);
+        if (!isClubAdmin(club, user.id)) return res.status(403).json({ error: 'Admin only' });
+        const member = club.members.find(m => String(m.id) === String(targetId));
         if (!member || member.role === 'admin') return res.status(400).json({ error: 'Invalid member' });
         member.role = role;
         await saveClubs(clubs);
@@ -604,8 +699,9 @@ export default async function handler(req, res) {
 
         const players = await getPlayers();
         const clubs = await getClubs();
-        const club = clubs[players[user.id]?.clubId];
+        const club = resolveUserClub(players, clubs, user.id, body.clubId);
         if (!club) return res.status(400).json({ error: 'Not in a club' });
+        repairPlayerClubId(players, user.id, club);
 
         club.questProgress = club.questProgress || { pops: 0, wins: 0, stars: 0 };
         if (['pops', 'wins', 'stars'].includes(stat)) {
@@ -666,8 +762,9 @@ export default async function handler(req, res) {
         const user = sanitizeUser(body);
         const players = await getPlayers();
         const clubs = await getClubs();
-        const club = clubs[players[user.id]?.clubId];
+        const club = resolveUserClub(players, clubs, user.id, body.clubId);
         if (!club || !user) return res.status(400).json({ error: 'Not in a club' });
+        repairPlayerClubId(players, user.id, club);
         const member = players[user.id] || {};
         if (member.lastHeartRequest && now() - member.lastHeartRequest < LIMITS.HEART_REQUEST_COOLDOWN_MS) {
           return res.status(429).json({ error: 'Heart request cooldown (3 hours)' });
@@ -688,9 +785,9 @@ export default async function handler(req, res) {
         if (!user || !targetId || targetId === user.id) return res.status(400).json({ error: 'Invalid' });
         const players = await getPlayers();
         const clubs = await getClubs();
-        const club = clubs[players[user.id]?.clubId];
+        const club = resolveUserClub(players, clubs, user.id, body.clubId);
         if (!club || !getMemberRole(club, user.id)) return res.status(403).json({ error: 'Not in club' });
-        if (!club.members.some(m => m.id === targetId)) return res.status(400).json({ error: 'Not a club member' });
+        if (!club.members.some(m => String(m.id) === String(targetId))) return res.status(400).json({ error: 'Not a club member' });
         const sender = players[user.id] || {};
         const sentLog = sender.sentHearts || {};
         if (sentLog[targetId] && now() - sentLog[targetId] < LIMITS.HEART_SEND_COOLDOWN_MS) {
@@ -741,7 +838,7 @@ export default async function handler(req, res) {
 
         const players = await getPlayers();
         const clubs = await getClubs();
-        const club = clubs[players[user.id]?.clubId];
+        const club = resolveUserClub(players, clubs, user.id, body.clubId);
         if (!club) return res.status(400).json({ error: 'Join a club to request cards' });
 
         const owned = (players[user.id]?.cards || {})[cardId] || 0;
@@ -764,11 +861,11 @@ export default async function handler(req, res) {
 
         const players = await getPlayers();
         const clubs = await getClubs();
-        const club = clubs[players[user.id]?.clubId];
+        const club = resolveUserClub(players, clubs, user.id, body.clubId);
         if (!club) return res.status(400).json({ error: 'Not in a club' });
-        if (!club.members.some(m => m.id === targetId)) return res.status(400).json({ error: 'Not a club member' });
+        if (!club.members.some(m => String(m.id) === String(targetId))) return res.status(400).json({ error: 'Not a club member' });
 
-        const reqIdx = (club.cardRequests || []).findIndex(r => r.id === targetId && r.cardId === cardId);
+        const reqIdx = (club.cardRequests || []).findIndex(r => String(r.id) === String(targetId) && r.cardId === cardId);
         if (reqIdx < 0) return res.status(404).json({ error: 'No matching request' });
 
         const sender = players[user.id] || {};

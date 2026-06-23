@@ -54,6 +54,17 @@ const SocialManager = (() => {
     try { localStorage.removeItem(`${CLUB_CACHE_PREFIX}${user.id}`); } catch { /* */ }
   }
 
+  function withClubPayload(extra = {}) {
+    const user = userPayload();
+    if (!user) throw new Error('Sign in required');
+    const cached = getCachedMyClub();
+    return {
+      ...user,
+      ...extra,
+      ...(cached?.id && !extra.clubId ? { clubId: cached.id } : {})
+    };
+  }
+
   async function syncProfile(progress) {
     const user = userPayload();
     if (!user) return null;
@@ -144,65 +155,49 @@ const SocialManager = (() => {
   }
 
   async function invitePlayer(targetId, targetName) {
-    const user = userPayload();
-    if (!user) throw new Error('Sign in required');
-    const cached = getCachedMyClub();
-    return api('club_invite', {
-      ...user,
-      targetId,
-      targetName,
-      clubId: cached?.id
-    });
+    return api('club_invite', withClubPayload({ targetId, targetName }));
   }
 
   async function updateClub(fields) {
-    const user = userPayload();
-    if (!user) throw new Error('Sign in required');
-    const result = await api('club_update', { ...user, ...fields });
+    const result = await api('club_update', withClubPayload(fields));
     if (result.club) cacheMyClub(result.club);
     return result;
   }
 
   async function approveJoin(targetId) {
-    const user = userPayload();
-    if (!user) throw new Error('Sign in required');
-    const result = await api('club_approve_join', { ...user, targetId });
+    const result = await api('club_approve_join', withClubPayload({ targetId }));
     if (result.club) cacheMyClub(result.club);
     return result;
   }
 
   async function denyJoin(targetId) {
-    const user = userPayload();
-    if (!user) throw new Error('Sign in required');
-    return api('club_deny_join', { ...user, targetId });
+    return api('club_deny_join', withClubPayload({ targetId }));
   }
 
   async function kickMember(targetId) {
-    const user = userPayload();
-    if (!user) throw new Error('Sign in required');
-    const result = await api('club_kick', { ...user, targetId });
+    const result = await api('club_kick', withClubPayload({ targetId }));
     if (result.club) cacheMyClub(result.club);
     return result;
   }
 
   async function revokeInvite(targetId) {
-    const user = userPayload();
-    if (!user) throw new Error('Sign in required');
-    return api('club_revoke_invite', { ...user, targetId });
+    return api('club_revoke_invite', withClubPayload({ targetId }));
   }
 
   async function leaveClub() {
-    const user = userPayload();
-    if (!user) throw new Error('Sign in required');
-    const result = await api('club_leave', user);
+    const result = await api('club_leave', withClubPayload());
+    clearMyClubCache();
+    return result;
+  }
+
+  async function deleteClub() {
+    const result = await api('club_delete', withClubPayload());
     clearMyClubCache();
     return result;
   }
 
   async function promoteMember(targetId, role) {
-    const user = userPayload();
-    if (!user) throw new Error('Sign in required');
-    const result = await api('club_promote', { ...user, targetId, role });
+    const result = await api('club_promote', withClubPayload({ targetId, role }));
     if (result.club) cacheMyClub(result.club);
     return result;
   }
@@ -210,7 +205,7 @@ const SocialManager = (() => {
   async function contributeQuest(stat, amount) {
     const user = userPayload();
     if (!user) return;
-    return api('club_quest', { ...user, stat, amount });
+    return api('club_quest', withClubPayload({ stat, amount }));
   }
 
   async function sendHeart(targetId) {
@@ -239,28 +234,20 @@ const SocialManager = (() => {
   }
 
   async function requestCard(cardId) {
-    const user = userPayload();
-    if (!user) throw new Error('Sign in required');
-    return api('card_request', { ...user, cardId });
+    return api('card_request', withClubPayload({ cardId }));
   }
 
   async function fulfillCardRequest(targetId, cardId) {
-    const user = userPayload();
-    if (!user) throw new Error('Sign in required');
     const meta = MetaManager.ensureMeta(AuthManager.loadProgress());
-    return api('card_fulfill_request', { ...user, targetId, cardId, cards: meta.cards });
+    return api('card_fulfill_request', withClubPayload({ targetId, cardId, cards: meta.cards }));
   }
 
   async function requestClubHeart() {
-    const user = userPayload();
-    if (!user) throw new Error('Sign in required');
-    return api('club_heart_request', user);
+    return api('club_heart_request', withClubPayload());
   }
 
   async function fulfillClubHeart(targetId) {
-    const user = userPayload();
-    if (!user) throw new Error('Sign in required');
-    return api('club_heart_fulfill', { ...user, targetId });
+    return api('club_heart_fulfill', withClubPayload({ targetId }));
   }
 
   function isCodeCard(cardId) {
@@ -293,6 +280,7 @@ const SocialManager = (() => {
     kickMember,
     revokeInvite,
     leaveClub,
+    deleteClub,
     promoteMember,
     contributeQuest,
     sendHeart,

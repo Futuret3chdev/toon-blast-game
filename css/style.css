@@ -3036,6 +3036,23 @@ body {
 .club-join-pick strong { display: block; font-size: 0.88rem; }
 .club-join-pick small { display: block; font-size: 0.68rem; opacity: 0.75; margin-top: 0.1rem; }
 
+.btn-danger {
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ff6b6b, #ee5253);
+  color: #fff;
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 600;
+  padding: 0.65rem 1rem;
+  cursor: pointer;
+  margin-top: 0.5rem;
+  box-shadow: 0 4px 0 #c0392b;
+}
+
+.btn-danger:active { transform: translateY(2px); box-shadow: 0 2px 0 #c0392b; }
+
+.club-sync-hint { opacity: 0.65; font-size: 0.72rem; }
+
 #club-invite-results .club-invite-target {
   display: block;
   width: 100%;
