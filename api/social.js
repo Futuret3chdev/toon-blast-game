@@ -90,8 +90,22 @@ export default async function handler(req, res) {
           if (member && user.name) member.name = user.name;
           if (club) await saveClubs(clubs);
         }
+        const clubs = await getClubs();
+        const pendingInvites = [];
+        if (!players[user.id]?.clubId) {
+          for (const c of Object.values(clubs)) {
+            if ((c.invites || []).some(i => i.id === user.id)) {
+              pendingInvites.push({ clubId: c.id, clubName: c.name, emoji: c.emoji || '🏆' });
+            }
+          }
+        }
         await savePlayers(players);
-        return res.status(200).json({ ok: true, cardGifts: gifts });
+        return res.status(200).json({
+          ok: true,
+          cardGifts: gifts,
+          pendingInvites,
+          clubId: players[user.id]?.clubId || null
+        });
       }
 
       case 'leaderboard': {
@@ -115,10 +129,68 @@ export default async function handler(req, res) {
         if (q.length < 2) return res.status(200).json({ players: [] });
         const players = await getPlayers();
         const playersList = Object.values(players)
-          .filter(p => (p.name || '').toLowerCase().includes(q) || p.id.toLowerCase().includes(q))
+          .filter(p => {
+            const name = (p.name || '').toLowerCase();
+            return name.includes(q) || name === q || p.id.toLowerCase().includes(q);
+          })
+          .sort((a, b) => {
+            const aName = (a.name || '').toLowerCase();
+            const bName = (b.name || '').toLowerCase();
+            const aExact = aName === q ? 1 : 0;
+            const bExact = bName === q ? 1 : 0;
+            if (aExact !== bExact) return bExact - aExact;
+            const aStart = aName.startsWith(q) ? 1 : 0;
+            const bStart = bName.startsWith(q) ? 1 : 0;
+            return bStart - aStart;
+          })
           .slice(0, 20)
-          .map(p => ({ id: p.id, name: p.name, clubId: p.clubId || null }));
+          .map(p => ({
+            id: p.id,
+            name: p.name,
+            clubId: p.clubId || null,
+            totalStars: p.totalStars || 0,
+            maxLevel: p.maxLevel || 1
+          }));
         return res.status(200).json({ players: playersList });
+      }
+
+      case 'club_search': {
+        const q = String(req.query?.q || body.q || '').trim().toLowerCase();
+        if (q.length < 2) return res.status(200).json({ clubs: [] });
+        const players = await getPlayers();
+        const clubs = await getClubs();
+        const clubsList = Object.values(clubs)
+          .filter(c => {
+            const name = (c.name || '').toLowerCase();
+            return name.includes(q) || name === q || c.id.toLowerCase().includes(q);
+          })
+          .map(c => {
+            const memberCount = c.members?.length || 0;
+            const teamStars = (c.members || []).reduce(
+              (sum, m) => sum + (players[m.id]?.totalStars || 0),
+              0
+            );
+            return {
+              id: c.id,
+              name: c.name,
+              emoji: c.emoji || '🏆',
+              description: c.description || '',
+              joinMode: c.joinMode || 'open',
+              memberCount,
+              teamStars,
+              isFull: memberCount >= 30
+            };
+          })
+          .sort((a, b) => {
+            const aName = (a.name || '').toLowerCase();
+            const bName = (b.name || '').toLowerCase();
+            const aExact = aName === q ? 1 : 0;
+            const bExact = bName === q ? 1 : 0;
+            if (aExact !== bExact) return bExact - aExact;
+            return b.teamStars - a.teamStars;
+          })
+          .slice(0, 20);
+        return res.status(200).json({ clubs: clubsList });
       }
 
       case 'club_leaderboard': {
@@ -294,11 +366,28 @@ export default async function handler(req, res) {
       case 'club_join': {
         if (req.method !== 'POST') return res.status(405).json({ error: 'POST required' });
         const user = sanitizeUser(body);
-        const joinId = String(body.clubId || '').trim();
-        if (!user || !joinId) return res.status(400).json({ error: 'Invalid request' });
+        if (!user) return res.status(400).json({ error: 'Invalid request' });
 
         const players = await getPlayers();
         const clubs = await getClubs();
+        let joinId = String(body.clubId || '').trim();
+        const clubQuery = String(body.clubQuery || body.clubName || '').trim();
+        if (!joinId && clubQuery) {
+          const q = clubQuery.toLowerCase();
+          const matches = Object.values(clubs).filter((c) => {
+            const name = (c.name || '').toLowerCase();
+            return c.id.toLowerCase() === q || name === q || name.includes(q);
+          });
+          if (matches.length === 1) joinId = matches[0].id;
+          else if (matches.length > 1) {
+            return res.status(400).json({
+              error: 'Multiple teams match — pick one from search results',
+              matches: matches.slice(0, 5).map(c => ({ id: c.id, name: c.name }))
+            });
+          } else return res.status(404).json({ error: 'No team found with that name' });
+        }
+        if (!joinId) return res.status(400).json({ error: 'Team name or club ID required' });
+
         const club = clubs[joinId];
         if (!club) return res.status(404).json({ error: 'Club not found' });
         if (players[user.id]?.clubId) return res.status(400).json({ error: 'Already in a club' });
@@ -451,15 +540,36 @@ export default async function handler(req, res) {
       case 'club_invite': {
         if (req.method !== 'POST') return res.status(405).json({ error: 'POST required' });
         const user = sanitizeUser(body);
-        const targetId = String(body.targetId || '').trim();
-        if (!user || !targetId) return res.status(400).json({ error: 'Invalid request' });
+        let targetId = String(body.targetId || '').trim();
+        const targetName = String(body.targetName || '').trim();
+        if (!user || (!targetId && !targetName)) return res.status(400).json({ error: 'Invalid request' });
 
         const players = await getPlayers();
         const clubs = await getClubs();
-        const club = clubs[players[user.id]?.clubId];
-        if (!club || !canManage(club, user.id)) return res.status(403).json({ error: 'No permission' });
-        if (!players[targetId]) return res.status(404).json({ error: 'Player not found' });
-        if (players[targetId].clubId) return res.status(400).json({ error: 'Player already in a club' });
+        let club = null;
+        const hintedClubId = String(body.clubId || players[user.id]?.clubId || '').trim();
+        if (hintedClubId) club = clubs[hintedClubId];
+        if (!club) {
+          club = Object.values(clubs).find(c => canManage(c, user.id) || isClubAdmin(c, user.id));
+        }
+        if (!club || !canManage(club, user.id)) return res.status(403).json({ error: 'No permission — officers and admins can invite' });
+
+        let target = targetId ? players[targetId] : null;
+        if (!target && targetName) {
+          const tn = targetName.toLowerCase();
+          const matches = Object.values(players).filter(p => (p.name || '').toLowerCase() === tn);
+          if (matches.length === 1) {
+            target = matches[0];
+            targetId = target.id;
+          } else if (matches.length > 1) {
+            return res.status(400).json({ error: 'Multiple players with that name — search again' });
+          }
+        }
+        if (!target) return res.status(404).json({ error: 'Player not found — they must sign in at least once' });
+        if (target.clubId) return res.status(400).json({ error: 'Player already in a club' });
+        if (club.members.some(m => m.id === targetId)) {
+          return res.status(400).json({ error: 'Player is already in your club' });
+        }
 
         club.invites = club.invites || [];
         if (!club.invites.find(i => i.id === targetId)) {

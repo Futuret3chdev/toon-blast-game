@@ -3011,9 +3011,36 @@ body {
   margin: 1rem 0;
 }
 
-.club-search-results, #club-invite-results {
+.club-search-results, #club-invite-results, .club-join-results {
   margin-top: 0.5rem;
   font-size: 0.85rem;
+}
+
+.club-join-row { padding: 0.35rem 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
+
+.club-join-pick {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  border: none;
+  background: rgba(255,255,255,0.08);
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  padding: 0.5rem 0.65rem;
+  border-radius: 10px;
+}
+
+.club-join-pick strong { display: block; font-size: 0.88rem; }
+.club-join-pick small { display: block; font-size: 0.68rem; opacity: 0.75; margin-top: 0.1rem; }
+
+#club-invite-results .club-invite-target {
+  display: block;
+  width: 100%;
+  margin-bottom: 0.35rem;
+  text-align: left;
 }
 
 .search-row {

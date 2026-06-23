@@ -55,6 +55,8 @@ const Game = (() => {
   let ranksTab = 'players';
 
   let heartsTimer = null;
+  let socialPollTimer = null;
+  let lastPendingInviteKey = '';
 
   function ensureProgress() {
     if (!progress) {
@@ -259,8 +261,10 @@ const Game = (() => {
       }
       if (name === 'menu') {
         MascotBrain.refresh();
-        syncSocial();
+        syncSocial({ refresh: false });
       }
+      if (name === 'leaderboard' || name === 'menu') startSocialPoll();
+      else stopSocialPoll();
       ensureProgress();
       updateMenuStats();
     } catch (err) {
@@ -828,9 +832,11 @@ const Game = (() => {
           </section>
           <section class="club-card">
             <h3>Join a Club</h3>
-            <p class="card-sub">Enter a Club ID (open clubs) or accept an invite above.</p>
-            <input id="club-join-input" class="field-input" type="text" placeholder="Club ID to join">
-            <button id="club-join-btn" class="btn-secondary btn-block" type="button">Join / Request</button>
+            <p class="card-sub">Search by team name or accept an invite above.</p>
+            <input id="club-join-input" class="field-input" type="text" maxlength="24" placeholder="Search team name">
+            <button id="club-join-search-btn" class="btn-secondary btn-block" type="button">Search Teams</button>
+            <div id="club-join-results" class="club-join-results"></div>
+            <button id="club-join-btn" class="btn-primary btn-block" type="button">Join Top Result / Request</button>
           </section>
           <section class="club-card">
             <h3>Find Players</h3>
@@ -966,9 +972,9 @@ const Game = (() => {
         ${canManage ? `
         <section class="club-card">
           <h3>Invite Players</h3>
-          <p class="card-sub">Search by username, then send an invite.</p>
-          <input id="club-invite-input" class="field-input" type="text" placeholder="Search player username">
-          <button id="club-invite-btn" class="btn-secondary btn-block" type="button">Search &amp; Invite</button>
+          <p class="card-sub">Search by display name (player must have signed in at least once).</p>
+          <input id="club-invite-input" class="field-input" type="text" placeholder="Search player name">
+          <button id="club-invite-btn" class="btn-secondary btn-block" type="button">Search Players</button>
           <div id="club-invite-results"></div>
         </section>
         ` : ''}
@@ -1008,30 +1014,47 @@ const Game = (() => {
         renderClub();
       } catch (e) { showToast(e.message); }
     });
+    $('club-join-search-btn')?.addEventListener('click', async () => {
+      const q = $('club-join-input')?.value?.trim();
+      await searchClubsToJoin(q, $('club-join-results'));
+    });
     $('club-join-btn')?.addEventListener('click', async () => {
-      const id = $('club-join-input')?.value?.trim();
-      if (!id) return showToast('Enter club ID');
+      const query = $('club-join-input')?.value?.trim();
+      if (!query) return showToast('Enter a team name to search');
       try {
-        const result = await SocialManager.joinClub(id);
+        await syncSocial();
+        const result = await SocialManager.joinClub(query);
         showToast(result?.pending ? 'Join request sent to admin!' : 'Joined club!');
-        if (!result?.pending) renderClub();
+        if (!result?.pending) {
+          showRanksTab('myclub');
+          renderClub();
+        }
       } catch (e) { showToast(e.message); }
+    });
+    $('club-join-input')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') $('club-join-search-btn')?.click();
     });
     $('club-search-btn')?.addEventListener('click', async () => {
       const q = $('club-search-input')?.value?.trim();
       const box = $('club-search-results');
       if (!q || !box) return;
+      box.innerHTML = '<p class="club-loading">Searching players…</p>';
       try {
+        await syncSocial();
         const data = await SocialManager.searchPlayers(q);
         box.innerHTML = (data.players || []).map(p =>
           `<button type="button" class="search-row search-player-btn" data-player-id="${p.id}">
-            <strong>${p.name}</strong> <small>${p.id}</small>
+            <strong>${p.name}</strong>
+            <small>${p.totalStars || 0}⭐ · Lv ${p.maxLevel || 1}${p.clubId ? ' · in club' : ''}</small>
           </button>`
-        ).join('') || '<p>No players found</p>';
+        ).join('') || '<p class="club-guest">No players found — they must sign in first</p>';
         box.querySelectorAll('.search-player-btn').forEach((btn) => {
           btn.addEventListener('click', () => viewPlayerDetail(btn.dataset.playerId));
         });
       } catch (e) { showToast(e.message); }
+    });
+    $('club-search-input')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') $('club-search-btn')?.click();
     });
   }
 
@@ -1166,21 +1189,29 @@ const Game = (() => {
       const q = $('club-invite-input')?.value?.trim();
       const box = $('club-invite-results');
       if (!q || !box) return;
+      box.innerHTML = '<p class="club-loading">Searching players…</p>';
       try {
+        await syncSocial();
         const data = await SocialManager.searchPlayers(q);
-        box.innerHTML = (data.players || []).map(p => `
-          <button type="button" class="btn-secondary club-invite-target" data-id="${p.id}">Invite ${p.name}</button>
-        `).join('') || '<p>No players found</p>';
+        const eligible = (data.players || []).filter(p => !p.clubId && !club.members.some(m => m.id === p.id));
+        box.innerHTML = eligible.map(p => `
+          <button type="button" class="btn-secondary club-invite-target" data-id="${p.id}" data-name="${escAttr(p.name)}">
+            Invite ${p.name} <small>(${p.totalStars || 0}⭐)</small>
+          </button>
+        `).join('') || '<p class="club-guest">No available players — already in a club or not signed in yet</p>';
         box.querySelectorAll('.club-invite-target').forEach(btn => {
           btn.addEventListener('click', async () => {
             try {
-              await SocialManager.invitePlayer(btn.dataset.id);
-              showToast('Invite sent!');
+              await SocialManager.invitePlayer(btn.dataset.id, btn.dataset.name);
+              showToast(`Invite sent to ${btn.dataset.name}!`);
               renderClub();
             } catch (err) { showToast(err.message); }
           });
         });
       } catch (err) { showToast(err.message); }
+    });
+    $('club-invite-input')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') $('club-invite-btn')?.click();
     });
 
   }
@@ -1297,8 +1328,32 @@ const Game = (() => {
     $('club-btn')?.classList.toggle('hub-tile-locked', !loggedIn);
   }
 
-  async function syncSocial() {
+  function refreshSocialScreens() {
+    if (!$('leaderboard-screen')?.classList.contains('active')) return;
+    if (ranksTab === 'players') renderLeaderboard();
+    else if (ranksTab === 'clubs') renderClubLeaderboard();
+    else if (ranksTab === 'myclub') renderClub();
+  }
+
+  function startSocialPoll() {
+    stopSocialPoll();
     if (!AuthManager.isLoggedIn()) return;
+    const intervalMs = $('leaderboard-screen')?.classList.contains('active') ? 5000 : 8000;
+    const tick = () => {
+      const onRanks = $('leaderboard-screen')?.classList.contains('active');
+      syncSocial({ refresh: onRanks }).catch(() => {});
+    };
+    tick();
+    socialPollTimer = setInterval(tick, intervalMs);
+  }
+
+  function stopSocialPoll() {
+    if (socialPollTimer) clearInterval(socialPollTimer);
+    socialPollTimer = null;
+  }
+
+  async function syncSocial(opts = {}) {
+    if (!AuthManager.isLoggedIn()) return null;
     try {
       const syncData = await SocialManager.syncProfile(progress);
       const inbox = await SocialManager.fetchInbox();
@@ -1328,12 +1383,83 @@ const Game = (() => {
         }
       }
 
+      const invites = syncData?.pendingInvites || [];
+      if (invites.length) {
+        const key = invites.map(i => i.clubId).sort().join(',');
+        if (key !== lastPendingInviteKey) {
+          lastPendingInviteKey = key;
+          const first = invites[0];
+          showToast(`${first.emoji || '🏆'} Club invite: ${first.clubName}`);
+        }
+      } else {
+        lastPendingInviteKey = '';
+      }
+
       if (changed) {
         saveProgress();
         updateHeartsHUD();
         updateMenuStats();
       }
+
+      if (opts.refresh) refreshSocialScreens();
+      return syncData;
     } catch { /* offline */ }
+    return null;
+  }
+
+  function joinModeShort(mode) {
+    if (mode === 'invite') return 'Invite only';
+    if (mode === 'approval') return 'Approval';
+    return 'Open';
+  }
+
+  function renderClubJoinResults(clubs, box) {
+    if (!box) return;
+    box.innerHTML = (clubs || []).map(c => `
+      <div class="club-join-row">
+        <button type="button" class="club-join-pick" data-club-id="${c.id}">
+          <span class="club-lb-emoji">${c.emoji || '🏆'}</span>
+          <span>
+            <strong>${c.name}</strong>
+            <small>${c.memberCount}/30 · ${c.teamStars}⭐ · ${joinModeShort(c.joinMode)}</small>
+          </span>
+        </button>
+      </div>
+    `).join('') || '<p class="club-guest">No teams found — try another name</p>';
+    box.querySelectorAll('.club-join-pick').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const clubName = btn.querySelector('strong')?.textContent || 'team';
+        try {
+          const result = await SocialManager.joinClub(btn.dataset.clubId, { clubId: btn.dataset.clubId });
+          showToast(result?.pending ? 'Join request sent to admin!' : `Joined ${clubName}!`);
+          if (!result?.pending) {
+            showRanksTab('myclub');
+            renderClub();
+          }
+        } catch (e) { showToast(e.message); }
+      });
+    });
+  }
+
+  async function searchClubsToJoin(query, box) {
+    if (!query || !box) return;
+    box.innerHTML = '<p class="club-loading">Searching teams…</p>';
+    try {
+      await syncSocial();
+      const data = await SocialManager.searchClubs(query);
+      let clubs = data.clubs || [];
+      if (!clubs.length) {
+        const cached = Object.values(clubRowCache).filter(c => {
+          const name = (c.name || '').toLowerCase();
+          const q = query.toLowerCase();
+          return name.includes(q) || c.id.toLowerCase().includes(q);
+        });
+        if (cached.length) clubs = cached;
+      }
+      renderClubJoinResults(clubs, box);
+    } catch (e) {
+      box.innerHTML = `<p class="club-guest">${e.message || 'Search failed'}</p>`;
+    }
   }
 
   function updateMenuStats() {
@@ -2097,7 +2223,12 @@ const Game = (() => {
       reloadProgress();
       renderProfilePickers();
       updateAuthUI();
-      syncSocial().catch(() => {});
+      if (AuthManager.isLoggedIn()) {
+        syncSocial({ refresh: true }).catch(() => {});
+        startSocialPoll();
+      } else {
+        stopSocialPoll();
+      }
       if ($('level-screen')?.classList.contains('active')) buildLevelMap();
     });
 
@@ -2262,6 +2393,7 @@ const Game = (() => {
       AuthManager.setProfile({ name, avatar, frame });
       showToast('Profile saved!');
       updateAuthUI();
+      syncSocial().catch(() => {});
     });
 
     $('invite-copy-btn')?.addEventListener('click', async () => {
@@ -2335,8 +2467,15 @@ const Game = (() => {
     $('lose-menu-btn')?.addEventListener('click', () => showScreen('menu'));
 
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) board?.clearHint();
-      else setTimeout(resizeBoard, 200);
+      if (document.hidden) {
+        board?.clearHint();
+      } else {
+        setTimeout(resizeBoard, 200);
+        if (AuthManager.isLoggedIn()) {
+          syncSocial({ refresh: $('leaderboard-screen')?.classList.contains('active') }).catch(() => {});
+          startSocialPoll();
+        }
+      }
     });
 
     let resizeTimer;
@@ -2383,6 +2522,10 @@ const Game = (() => {
     try { renderProfilePickers(); } catch (err) { console.warn('Profile pickers failed:', err); }
     try { updateInviteSection(); } catch (err) { console.warn('Invite section failed:', err); }
     updateAuthUI();
+    if (AuthManager.isLoggedIn()) {
+      syncSocial({ refresh: false }).catch(() => {});
+      startSocialPoll();
+    }
     MascotBrain.init();
     showSettingsTab('sound');
 

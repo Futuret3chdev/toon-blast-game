@@ -93,6 +93,10 @@ const SocialManager = (() => {
     return api('search', { q }, 'GET');
   }
 
+  async function searchClubs(q) {
+    return api('club_search', { q }, 'GET');
+  }
+
   async function getClub() {
     const user = userPayload();
     if (!user) return null;
@@ -116,10 +120,17 @@ const SocialManager = (() => {
     return result;
   }
 
-  async function joinClub(clubId) {
+  async function joinClub(clubIdOrQuery, opts = {}) {
     const user = userPayload();
     if (!user) throw new Error('Sign in required');
-    const result = await api('club_join', { ...user, clubId });
+    const raw = String(clubIdOrQuery || '').trim();
+    const payload = { ...user };
+    if (opts.clubId || raw.startsWith('club_')) {
+      payload.clubId = opts.clubId || raw;
+    } else {
+      payload.clubQuery = raw;
+    }
+    const result = await api('club_join', payload);
     if (result.club) cacheMyClub(result.club);
     return result;
   }
@@ -132,10 +143,16 @@ const SocialManager = (() => {
     return result;
   }
 
-  async function invitePlayer(targetId) {
+  async function invitePlayer(targetId, targetName) {
     const user = userPayload();
     if (!user) throw new Error('Sign in required');
-    return api('club_invite', { ...user, targetId });
+    const cached = getCachedMyClub();
+    return api('club_invite', {
+      ...user,
+      targetId,
+      targetName,
+      clubId: cached?.id
+    });
   }
 
   async function updateClub(fields) {
@@ -264,6 +281,7 @@ const SocialManager = (() => {
     viewPlayer,
     claimCardGifts,
     searchPlayers,
+    searchClubs,
     getClub,
     createClub,
     joinClub,
