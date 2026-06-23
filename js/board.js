@@ -106,21 +106,26 @@ class GameBoard {
     const powerUp = this.determinePowerUp(match);
     const tapCell = { row, col };
 
-    await this.destroyMatch(match, tapCell, powerUp);
-    this.moves--;
-    this.callbacks.onMovesChanged(this.moves);
+    try {
+      await this.destroyMatch(match, tapCell, powerUp);
+      this.moves--;
+      this.callbacks.onMovesChanged(this.moves);
 
-    if (powerUp) {
-      this.setBlock(tapCell.row, tapCell.col, powerUp);
-      this.callbacks.onBlockCreated(tapCell.row, tapCell.col, powerUp);
-      AudioEngine.powerUp();
-      await this.activatePowerUp(tapCell.row, tapCell.col, powerUp, false);
-    } else {
-      await this.settle();
+      if (powerUp) {
+        this.setBlock(tapCell.row, tapCell.col, powerUp);
+        this.callbacks.onBlockCreated(tapCell.row, tapCell.col, powerUp);
+        AudioEngine.powerUp();
+        await this.activatePowerUp(tapCell.row, tapCell.col, powerUp, false);
+      } else {
+        await this.settle();
+        this.callbacks.onStateChange();
+        this.checkEnd();
+        this.resetHintTimer();
+      }
+    } catch (err) {
+      console.error('handleTap failed:', err);
+    } finally {
       this.busy = false;
-      this.callbacks.onStateChange();
-      this.checkEnd();
-      this.resetHintTimer();
     }
   }
 
@@ -364,10 +369,12 @@ class GameBoard {
   spawnNewSync() {
     const spawns = [];
     for (let col = 0; col < this.width; col++) {
-      if (this.getBlock(0, col) === null) {
+      for (let row = 0; row < this.height; row++) {
+        if (this.getBlock(row, col) !== null) continue;
         const newBlock = randomCube();
-        this.setBlock(0, col, newBlock);
-        spawns.push({ row: 0, col, block: newBlock });
+        this.setBlock(row, col, newBlock);
+        spawns.push({ row, col, block: newBlock });
+        break;
       }
     }
     return spawns;

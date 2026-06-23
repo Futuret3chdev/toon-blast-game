@@ -695,9 +695,9 @@ const Game = (() => {
     },
 
     async onBatchSettle(falls, spawns) {
-      if (!falls.length && !spawns.length) return;
       refreshBoardDOM();
-      await delay(60);
+      if (!falls.length && !spawns.length) return;
+      await delay(falls.length > 8 ? 100 : 60);
       document.querySelectorAll('.block.drop-in').forEach(el => el.classList.remove('drop-in'));
     },
 
