@@ -26,9 +26,9 @@ const SocialManager = (() => {
 
   async function syncProfile(progress) {
     const user = userPayload();
-    if (!user) return;
+    if (!user) return null;
     const meta = MetaManager.ensureMeta(progress);
-    await api('sync', {
+    return api('sync', {
       ...user,
       totalStars: progress.totalStars || 0,
       maxLevel: progress.maxLevel || 1,
@@ -39,6 +39,20 @@ const SocialManager = (() => {
 
   async function fetchLeaderboard() {
     return api('leaderboard', {}, 'GET');
+  }
+
+  async function fetchClubLeaderboard() {
+    return api('club_leaderboard', {}, 'GET');
+  }
+
+  async function viewClub(clubId) {
+    return api('club_view', { clubId }, 'GET');
+  }
+
+  async function claimCardGifts() {
+    const user = userPayload();
+    if (!user) return { claimed: [] };
+    return api('card_claim', { userId: user.id });
   }
 
   async function searchPlayers(q) {
@@ -137,6 +151,9 @@ const SocialManager = (() => {
   return {
     syncProfile,
     fetchLeaderboard,
+    fetchClubLeaderboard,
+    viewClub,
+    claimCardGifts,
     searchPlayers,
     getClub,
     createClub,

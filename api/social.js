@@ -59,8 +59,9 @@ export default async function handler(req, res) {
           cards: body.cards ?? existing.cards ?? {},
           updatedAt: now()
         };
+        const gifts = players[user.id]?.cardGifts || [];
         await savePlayers(players);
-        return res.status(200).json({ ok: true });
+        return res.status(200).json({ ok: true, cardGifts: gifts });
       }
 
       case 'leaderboard': {
@@ -89,6 +90,58 @@ export default async function handler(req, res) {
         return res.status(200).json({ players: playersList });
       }
 
+      case 'club_leaderboard': {
+        const players = await getPlayers();
+        const clubs = await getClubs();
+        const rows = Object.values(clubs)
+          .map((c) => {
+            const teamStars = (c.members || []).reduce(
+              (sum, m) => sum + (players[m.id]?.totalStars || 0),
+              0
+            );
+            return {
+              id: c.id,
+              name: c.name,
+              memberCount: c.members?.length || 0,
+              teamStars,
+              adminName: c.members?.find(m => m.id === c.adminId)?.name || 'Unknown'
+            };
+          })
+          .sort((a, b) => b.teamStars - a.teamStars || b.memberCount - a.memberCount)
+          .slice(0, 20);
+        return res.status(200).json({ rows });
+      }
+
+      case 'club_view': {
+        const clubId = String(req.query?.clubId || body.clubId || '').trim();
+        if (!clubId) return res.status(400).json({ error: 'clubId required' });
+        const players = await getPlayers();
+        const clubs = await getClubs();
+        const club = clubs[clubId];
+        if (!club) return res.status(404).json({ error: 'Club not found' });
+        const teamStars = (club.members || []).reduce(
+          (sum, m) => sum + (players[m.id]?.totalStars || 0),
+          0
+        );
+        return res.status(200).json({
+          club: {
+            id: club.id,
+            name: club.name,
+            adminId: club.adminId,
+            memberCount: club.members?.length || 0,
+            teamStars,
+            members: (club.members || []).map(m => ({
+              id: m.id,
+              name: m.name,
+              role: m.role,
+              stars: players[m.id]?.totalStars || 0
+            })),
+            questProgress: club.questProgress || { pops: 0, wins: 0, stars: 0 }
+          },
+          teamQuests: TEAM_QUESTS
+        });
+      }
+
       case 'club_get': {
         const user = sanitizeUser({
           id: body.id || req.query?.id || req.query?.userId,
@@ -99,7 +152,16 @@ export default async function handler(req, res) {
         const players = await getPlayers();
         const clubs = await getClubs();
         const player = players[user.id];
-        const club = player?.clubId ? clubs[player.clubId] : null;
+        let club = player?.clubId ? clubs[player.clubId] : null;
+        if (club) {
+          club = {
+            ...club,
+            members: (club.members || []).map(m => ({
+              ...m,
+              stars: players[m.id]?.totalStars || 0
+            }))
+          };
+        }
         const pendingInvites = [];
         if (!player?.clubId) {
           for (const c of Object.values(clubs)) {
@@ -342,20 +404,39 @@ export default async function handler(req, res) {
         const players = await getPlayers();
         const sender = players[user.id] || {};
         const cards = body.cards || sender.cards || {};
-        if ((cards[cardId] || 0) < 2) return res.status(400).json({ error: 'Need duplicate card' });
+        if ((cards[cardId] || 0) <= 1) return res.status(400).json({ error: 'Need more than 1 of this card' });
 
         cards[cardId]--;
         const target = players[targetId] || { id: targetId, name: 'Player' };
-        const tCards = target.cards || {};
-        tCards[cardId] = (tCards[cardId] || 0) + 1;
-        target.cards = tCards;
         target.cardGifts = target.cardGifts || [];
-        target.cardGifts.push({ cardId, from: user.name, at: now() });
+        target.cardGifts.push({ cardId, from: user.name, fromId: user.id, at: now() });
 
         players[user.id] = { ...sender, cards, updatedAt: now() };
         players[targetId] = { ...target, updatedAt: now() };
         await savePlayers(players);
         return res.status(200).json({ ok: true });
+      }
+
+      case 'card_claim': {
+        if (req.method !== 'POST') return res.status(405).json({ error: 'POST required' });
+        const userId = String(body.userId || '').trim();
+        if (!userId) return res.status(400).json({ error: 'userId required' });
+        const players = await getPlayers();
+        const player = players[userId];
+        if (!player) return res.status(404).json({ error: 'Player not found' });
+        const gifts = player.cardGifts || [];
+        if (!gifts.length) return res.status(200).json({ ok: true, claimed: [] });
+
+        const claimed = gifts.map(g => g.cardId);
+        const tCards = player.cards || {};
+        gifts.forEach((g) => {
+          tCards[g.cardId] = (tCards[g.cardId] || 0) + 1;
+        });
+        player.cards = tCards;
+        player.cardGifts = [];
+        players[userId] = { ...player, updatedAt: now() };
+        await savePlayers(players);
+        return res.status(200).json({ ok: true, claimed, cards: tCards });
       }
 
       default:

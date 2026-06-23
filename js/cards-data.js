@@ -43,20 +43,50 @@ const CODE_CARDS = [
   { id: 'code_pop', name: 'POP Legend', emoji: '🎉', code: 'MTE-POP-LEGEND', set: 'volcano' }
 ];
 
-const STICKERS = [
-  { id: 's_pop', name: 'POP!', emoji: '💥' },
-  { id: 's_star', name: 'Super Star', emoji: '⭐' },
-  { id: 's_heart', name: 'Big Heart', emoji: '💖' },
-  { id: 's_combo', name: 'Combo King', emoji: '🔥' },
-  { id: 's_bomb', name: 'Boom', emoji: '💣' },
-  { id: 's_rocket', name: 'Zoom', emoji: '🚀' },
-  { id: 's_disco', name: 'Party', emoji: '🪩' },
-  { id: 's_coin', name: 'Rich', emoji: '🪙' },
-  { id: 's_trophy', name: 'Champion', emoji: '🏆' },
-  { id: 's_mascot', name: 'Blip', emoji: '😊' },
-  { id: 's_quest', name: 'Quest Hero', emoji: '📜' },
-  { id: 's_code', name: 'Code Hunter', emoji: '🔑' }
-];
+const STICKER_SET_DEFS = {
+  meadow: {
+    names: ['Sun Sprout', 'Daisy', 'Busy Bee', 'Butterfly', 'Rainbow', 'Meadow Fox', 'Honey Pot', 'Ladybug', 'Tulip', 'Clover', 'Mushroom', 'Bird Nest', 'Watering Can', 'Garden Gnome', 'Wildflower', 'Sunbeam', 'Golden Bloom', 'Meadow Crown', 'Eternal Spring', 'Meadow Legend'],
+    symbols: ['🌱', '🌼', '🐝', '🦋', '🌈', '🦊', '🍯', '🐞', '🌷', '☘️', '🍄', '🪺', '🚿', '🧙', '💐', '✨', '🌟', '👑', '🌞', '🏆']
+  },
+  castle: {
+    names: ['Castle Gate', 'Royal Flag', 'Magic Wand', 'Crystal Ball', 'Knight Helm', 'Dragon Scale', 'Royal Crown', 'Treasure Key', 'Stone Tower', 'Drawbridge', 'Royal Feast', 'Enchanted Book', 'Silver Chalice', 'War Banner', 'Mystic Orb', 'Starlit Hall', 'Golden Throne', 'Royal Scepter', 'Ancient Seal', 'Castle Legend'],
+    symbols: ['🏰', '🚩', '🪄', '🔮', '⛑️', '🐉', '👑', '🗝️', '🗼', '🌉', '🍽️', '📖', '🏆', '🎌', '🔯', '✨', '🌟', '⚜️', '💠', '🏅']
+  },
+  ocean: {
+    names: ['Wave Rider', 'Starfish', 'Dolphin', 'Anchor', 'Pearl Shell', 'Coral Reef', 'Sea Turtle', 'Jellyfish', 'Compass', 'Sailboat', 'Treasure Map', 'Lighthouse', 'Seahorse', 'Message Bottle', 'Sand Castle', 'Moon Tide', 'Golden Pearl', 'Ocean Crown', 'Deep Treasure', 'Ocean Legend'],
+    symbols: ['🌊', '⭐', '🐬', '⚓', '🐚', '🪸', '🐢', '🪼', '🧭', '⛵', '🗺️', '🗼', '🦄', '🍾', '🏖️', '🌙', '💎', '👑', '🏴‍☠️', '🏆']
+  },
+  volcano: {
+    names: ['Lava Rock', 'Fire Spirit', 'Magma Gem', 'Volcano', 'Meteor', 'Ember Fox', 'Ash Cloud', 'Molten Core', 'Flame Torch', 'Obsidian', 'Fire Flower', 'Heat Wave', 'Spark Shower', 'Magma Flow', 'Cinder Trail', 'Blazing Peak', 'Golden Ember', 'Flame Crown', 'Phoenix Rise', 'Volcano Legend'],
+    symbols: ['🪨', '🔥', '💥', '🌋', '☄️', '🦊', '☁️', '🔴', '🔦', '⬛', '🌺', '🌡️', '✨', '🌊', '💨', '⛰️', '🌟', '👑', '🦅', '🏆']
+  }
+};
+
+function buildStickerSets() {
+  const stickers = [];
+  Object.entries(STICKER_SET_DEFS).forEach(([setKey, def]) => {
+    def.names.forEach((name, i) => {
+      const slot = i + 1;
+      stickers.push({
+        id: `st_${setKey}_${String(slot).padStart(2, '0')}`,
+        set: setKey,
+        name,
+        symbol: def.symbols[i],
+        slot,
+        gold: slot >= 17
+      });
+    });
+  });
+  return stickers;
+}
+
+const STICKERS = buildStickerSets();
+const STICKER_SETS = Object.fromEntries(
+  Object.keys(STICKER_SET_DEFS).map((key) => [
+    key,
+    { ...CARD_SETS[key], stickers: STICKERS.filter((s) => s.set === key) }
+  ])
+);
 
 const QUESTS = [
   {
@@ -66,7 +96,7 @@ const QUESTS = [
     icon: '🏁',
     stat: 'levelsWon',
     target: 3,
-    reward: { coins: 75, sticker: 's_trophy' },
+    reward: { coins: 75, sticker: 'st_meadow_20' },
     codeChance: 0.15
   },
   {
@@ -76,7 +106,7 @@ const QUESTS = [
     icon: '📦',
     stat: 'boxesPopped',
     target: 10,
-    reward: { coins: 50, sticker: 's_bomb' },
+    reward: { coins: 50, sticker: 'st_volcano_02' },
     codeChance: 0.12
   },
   {
@@ -86,7 +116,7 @@ const QUESTS = [
     icon: '⚡',
     stat: 'combos',
     target: 5,
-    reward: { coins: 60, sticker: 's_combo' },
+    reward: { coins: 60, sticker: 'st_volcano_14' },
     codeChance: 0.18
   },
   {
@@ -96,7 +126,7 @@ const QUESTS = [
     icon: '💫',
     stat: 'powerUpsUsed',
     target: 3,
-    reward: { coins: 80, sticker: 's_rocket' },
+    reward: { coins: 80, sticker: 'st_castle_03' },
     codeChance: 0.2
   },
   {
@@ -106,7 +136,7 @@ const QUESTS = [
     icon: '⭐',
     stat: 'totalStars',
     target: 6,
-    reward: { coins: 100, sticker: 's_star' },
+    reward: { coins: 100, sticker: 'st_ocean_02' },
     codeChance: 0.25
   },
   {
@@ -116,7 +146,7 @@ const QUESTS = [
     icon: '🃏',
     stat: 'uniqueCards',
     target: 5,
-    reward: { coins: 90, sticker: 's_code' },
+    reward: { coins: 90, sticker: 'st_castle_20' },
     codeChance: 0.3
   }
 ];

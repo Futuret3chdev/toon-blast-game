@@ -66,7 +66,10 @@ const MetaManager = (() => {
     const meta = ensureMeta(progress);
     const card = pickNormalCard(levelNumber);
     const isNew = addCard(meta, card.id);
-    const stickerRoll = STICKERS[Math.floor(Math.random() * STICKERS.length)];
+    const setKeys = Object.keys(CARD_SETS);
+    const set = setKeys[(levelNumber - 1) % setKeys.length];
+    const pool = STICKERS.filter(s => s.set === set && !s.gold);
+    const stickerRoll = pool[Math.floor(Math.random() * pool.length)] || STICKERS[0];
     const stickerNew = Math.random() < 0.35 ? addSticker(meta, stickerRoll.id) : false;
 
     return {
@@ -138,12 +141,37 @@ const MetaManager = (() => {
     const owned = opts.owned !== false;
     return `
       <article class="collect-card${owned ? '' : ' locked'}${isCode ? ' code-card' : ''} rarity-${card.rarity || 'common'}" data-id="${card.id}">
-        <div class="collect-card-art" style="--set-color:${set.color}">${card.emoji}</div>
+        <div class="collect-card-art${owned ? '' : ' collect-card-empty'}" style="--set-color:${set.color}">${owned ? card.emoji : ''}</div>
         <div class="collect-card-name">${card.name}</div>
         ${isCode && owned ? `<div class="collect-card-code">${card.code}</div>` : ''}
         ${opts.count > 1 ? `<span class="collect-card-count">×${opts.count}</span>` : ''}
       </article>
     `;
+  }
+
+  function renderStickerHTML(sticker, opts = {}) {
+    const owned = (opts.count || 0) > 0;
+    const set = CARD_SETS[sticker.set] || { name: 'Special', color: '#6c5ce7' };
+    const frameClass = sticker.gold ? 'sticker-frame-gold' : 'sticker-frame-blue';
+    if (!owned) {
+      return `
+        <article class="sticker-card locked ${frameClass}" data-id="${sticker.id}" title="${sticker.name}">
+          <div class="sticker-frame-inner"></div>
+          <div class="sticker-name">${sticker.name}</div>
+        </article>
+      `;
+    }
+    return `
+      <article class="sticker-card owned ${frameClass}" data-id="${sticker.id}">
+        <div class="sticker-art" style="--set-color:${set.color}">${sticker.symbol}</div>
+        <div class="sticker-name">${sticker.name}</div>
+        ${opts.count > 1 ? `<span class="sticker-count">×${opts.count}</span>` : ''}
+      </article>
+    `;
+  }
+
+  function ownedStickerCount(meta) {
+    return STICKERS.filter(s => (meta.stickers[s.id] || 0) > 0).length;
   }
 
   function setMascotState(el, state) {
@@ -171,6 +199,8 @@ const MetaManager = (() => {
     setMascotState,
     mascotFromMoves,
     uniqueCardCount,
+    renderStickerHTML,
+    ownedStickerCount,
     DEFAULT_META
   };
 })();

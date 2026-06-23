@@ -1,9 +1,10 @@
 const Game = (() => {
   const SHOP_ITEMS = [
-    { id: 'bomb', label: 'Bomb', icon: '💣', desc: 'Blasts a 5×5 area!', price: 100, type: 'bomb' },
-    { id: 'rocket', label: 'Rocket', icon: '🚀', desc: 'Clears a full row or column', price: 150, type: 'rocket_h' },
-    { id: 'disco', label: 'Disco Ball', icon: '🪩', desc: 'Destroys all blocks of one color', price: 200, type: 'disco' },
-    { id: 'extra_moves', label: '+5 Moves', icon: '⚡', desc: 'Instantly add 5 extra moves', price: 250, type: 'extra_moves' }
+    { id: 'hearts', label: 'Refill Hearts', iconKey: 'shopHearts', desc: 'Restore all 5 hearts instantly', price: 100, kind: 'hearts' },
+    { id: 'bomb', label: 'Bomb', iconKey: 'shopBomb', desc: 'Blasts a 5×5 area!', price: 100, type: 'bomb' },
+    { id: 'rocket', label: 'Rocket', iconKey: 'shopRocket', desc: 'Clears a full row or column', price: 150, type: 'rocket_h' },
+    { id: 'disco', label: 'Disco Ball', iconKey: 'shopDisco', desc: 'Destroys all blocks of one color', price: 200, type: 'disco' },
+    { id: 'extra_moves', label: '+5 Moves', iconKey: 'shopMoves', desc: 'Instantly add 5 extra moves', price: 250, type: 'extra_moves' }
   ];
 
   const STATION_THEMES = [
@@ -44,9 +45,10 @@ const Game = (() => {
     quests: 'quests-screen',
     collections: 'collections-screen',
     stickers: 'stickers-screen',
-    leaderboard: 'leaderboard-screen',
-    club: 'club-screen'
+    leaderboard: 'leaderboard-screen'
   };
+
+  let ranksTab = 'players';
 
   let heartsTimer = null;
 
@@ -245,8 +247,12 @@ const Game = (() => {
       if (name === 'quests') renderQuests();
       if (name === 'collections') renderCollections();
       if (name === 'stickers') renderStickers();
-      if (name === 'leaderboard') renderLeaderboard();
-      if (name === 'club') renderClub();
+      if (name === 'leaderboard') {
+        showRanksTab(ranksTab);
+        renderLeaderboard();
+        renderClubLeaderboard();
+        renderClub();
+      }
       if (name === 'menu') {
         MascotBrain.refresh();
         syncSocial();
@@ -404,21 +410,40 @@ const Game = (() => {
   }
 
   function renderStickers() {
-    const grid = $('stickers-grid');
-    if (!grid) return;
+    const wrap = $('stickers-collections');
+    if (!wrap) return;
     const meta = MetaManager.ensureMeta(progress);
 
-    grid.innerHTML = STICKERS.map((sticker) => {
-      const count = meta.stickers[sticker.id] || 0;
-      const owned = count > 0;
+    wrap.innerHTML = Object.entries(STICKER_SETS).map(([key, set]) => {
+      const owned = set.stickers.filter(s => (meta.stickers[s.id] || 0) > 0).length;
       return `
-        <article class="sticker-card${owned ? '' : ' locked'}">
-          <div class="sticker-art">${sticker.emoji}</div>
-          <div class="sticker-name">${sticker.name}</div>
-          ${count > 1 ? `<span class="sticker-count">×${count}</span>` : ''}
-        </article>
+        <section class="sticker-set">
+          <header class="sticker-set-header" style="--set-color:${set.color}">
+            <h3>${set.name}</h3>
+            <span class="sticker-set-progress">${owned} / 20</span>
+          </header>
+          <div class="stickers-grid">
+            ${set.stickers.map((sticker) =>
+              MetaManager.renderStickerHTML(sticker, { count: meta.stickers[sticker.id] || 0 })
+            ).join('')}
+          </div>
+        </section>
       `;
     }).join('');
+  }
+
+  function showRanksTab(tab = 'players') {
+    ranksTab = tab;
+    document.querySelectorAll('.ranks-tab').forEach((el) => {
+      const active = el.dataset.ranksTab === tab;
+      el.classList.toggle('active', active);
+      el.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    document.querySelectorAll('.ranks-panel').forEach((el) => {
+      el.classList.toggle('active', el.dataset.ranksTab === tab);
+    });
+    if (tab === 'clubs') renderClubLeaderboard();
+    if (tab === 'myclub') renderClub();
   }
 
   async function renderLeaderboard() {
@@ -441,6 +466,64 @@ const Game = (() => {
       `).join('') || '<li class="lb-guest">No ranks yet — be the first!</li>';
     } catch {
       list.innerHTML = '<li class="lb-guest">Could not load leaderboard.</li>';
+    }
+  }
+
+  async function renderClubLeaderboard() {
+    const list = $('club-leaderboard-list');
+    const detail = $('club-view-detail');
+    if (!list) return;
+    if (!AuthManager.isLoggedIn()) {
+      list.innerHTML = '<li class="lb-guest">Sign in to view top clubs.</li>';
+      return;
+    }
+    list.innerHTML = '<li class="lb-loading">Loading clubs…</li>';
+    if (detail) detail.classList.add('hidden');
+    try {
+      const data = await SocialManager.fetchClubLeaderboard();
+      list.innerHTML = (data.rows || []).map((row, i) => `
+        <li class="lb-row club-lb-row">
+          <span class="lb-rank">#${i + 1}</span>
+          <button type="button" class="club-lb-name" data-club-id="${row.id}">
+            <strong>${row.name}</strong>
+            <small>${row.memberCount} players · ${row.teamStars}⭐</small>
+          </button>
+          <span class="lb-score">${row.teamStars}</span>
+        </li>
+      `).join('') || '<li class="lb-guest">No clubs yet — create one in My Club!</li>';
+      list.querySelectorAll('.club-lb-name').forEach((btn) => {
+        btn.addEventListener('click', () => viewClubDetail(btn.dataset.clubId));
+      });
+    } catch {
+      list.innerHTML = '<li class="lb-guest">Could not load clubs.</li>';
+    }
+  }
+
+  async function viewClubDetail(clubId) {
+    const detail = $('club-view-detail');
+    if (!detail || !clubId) return;
+    detail.classList.remove('hidden');
+    detail.innerHTML = '<p class="club-loading">Loading club…</p>';
+    try {
+      const data = await SocialManager.viewClub(clubId);
+      const club = data.club;
+      detail.innerHTML = `
+        <section class="club-card">
+          <button type="button" class="btn-secondary club-detail-close">Close</button>
+          <h3>${club.name}</h3>
+          <p><strong>${club.teamStars}</strong> team stars · <strong>${club.memberCount}</strong> players</p>
+          <ul class="club-members">
+            ${club.members.map(m => `
+              <li><span>${m.name}</span> <em>${m.role}</em> <span class="member-stars">${m.stars}⭐</span></li>
+            `).join('')}
+          </ul>
+        </section>
+      `;
+      detail.querySelector('.club-detail-close')?.addEventListener('click', () => {
+        detail.classList.add('hidden');
+      });
+    } catch (err) {
+      detail.innerHTML = `<p class="club-guest">${err.message || 'Could not load club'}</p>`;
     }
   }
 
@@ -505,8 +588,9 @@ const Game = (() => {
 
       panel.innerHTML = `
         <section class="club-card">
-          <h3>${club.name}</h3>
+          <h3>${club.name} ${isAdmin ? '<span class="club-badge-admin">Your Club</span>' : ''}</h3>
           <p class="club-id">ID: <code>${club.id}</code></p>
+          <p class="club-stats-line"><strong>${club.members.reduce((s, m) => s + (m.stars || 0), 0) || '—'}</strong> team stars · <strong>${club.members.length}</strong> players</p>
           <button id="club-heart-request" class="btn-secondary btn-block" type="button">Request Heart from Club</button>
         </section>
         <section class="club-card">
@@ -559,7 +643,12 @@ const Game = (() => {
           <h3>Send Duplicate Card</h3>
           <p class="card-sub">Gold/code cards cannot be sent.</p>
           <select id="club-card-select" class="field-input"></select>
-          <input id="club-card-target" class="field-input" type="text" placeholder="Teammate player ID">
+          <select id="club-card-target" class="field-input">
+            <option value="">Pick teammate</option>
+            ${club.members.filter(m => m.id !== user?.id).map(m =>
+              `<option value="${m.id}">${m.name}</option>`
+            ).join('')}
+          </select>
           <button id="club-card-send" class="btn-secondary btn-block" type="button">Send Card</button>
         </section>
       `;
@@ -747,22 +836,43 @@ const Game = (() => {
   function updateSocialLocks() {
     const loggedIn = AuthManager.isLoggedIn();
     $('leaderboard-btn')?.classList.toggle('hub-tile-locked', !loggedIn);
-    $('club-btn')?.classList.toggle('hub-tile-locked', !loggedIn);
   }
 
   async function syncSocial() {
     if (!AuthManager.isLoggedIn()) return;
     try {
-      await SocialManager.syncProfile(progress);
+      const syncData = await SocialManager.syncProfile(progress);
       const inbox = await SocialManager.fetchInbox();
+      let changed = false;
+
       if (inbox.gifts?.length) {
         inbox.gifts.forEach(() => HeartsManager.add(progress, 1));
         for (let i = inbox.gifts.length - 1; i >= 0; i--) {
           try { await SocialManager.claimHeart(i); } catch { /* noop */ }
         }
+        changed = true;
+        showToast(`Received ${inbox.gifts.length} heart(s) from teammates!`);
+      }
+
+      const pendingGifts = syncData?.cardGifts?.length
+        ? syncData.cardGifts
+        : [];
+      if (pendingGifts.length) {
+        const claim = await SocialManager.claimCardGifts();
+        if (claim.claimed?.length) {
+          const meta = MetaManager.ensureMeta(progress);
+          claim.claimed.forEach((cardId) => {
+            meta.cards[cardId] = (meta.cards[cardId] || 0) + 1;
+          });
+          changed = true;
+          showToast(`Received ${claim.claimed.length} card gift(s)!`);
+        }
+      }
+
+      if (changed) {
         saveProgress();
         updateHeartsHUD();
-        showToast(`Received ${inbox.gifts.length} heart(s) from teammates!`);
+        updateMenuStats();
       }
     } catch { /* offline */ }
   }
@@ -783,8 +893,7 @@ const Game = (() => {
       $('menu-card-count').textContent = MetaManager.uniqueCardCount(meta);
     }
     if ($('menu-sticker-count')) {
-      const stickerTotal = Object.values(meta.stickers).reduce((a, b) => a + b, 0);
-      $('menu-sticker-count').textContent = stickerTotal;
+      $('menu-sticker-count').textContent = MetaManager.ownedStickerCount(meta);
     }
     updateInventoryHUD();
     updateQuestBadge();
@@ -809,29 +918,39 @@ const Game = (() => {
     const data = ensureProgress();
     list.innerHTML = '';
 
+    const hearts = HeartsManager.regen(HeartsManager.ensure(data));
+
     SHOP_ITEMS.forEach(item => {
       const invKey = item.type === 'rocket_h' ? 'rocket_h' : item.id === 'extra_moves' ? 'extra_moves' : item.type;
-      const owned = (data.inventory && data.inventory[invKey]) || 0;
+      const owned = item.kind === 'hearts'
+        ? `${hearts.current}/${hearts.max}`
+        : `In bag: ${(data.inventory && data.inventory[invKey]) || 0}`;
       const canAfford = data.coins >= item.price;
+      const heartsFull = item.kind === 'hearts' && hearts.current >= hearts.max;
+      const iconSvg = MTEIcons[item.iconKey] || '';
 
       const el = document.createElement('article');
       el.className = 'shop-item';
       el.innerHTML = `
-        <div class="shop-item-icon" aria-hidden="true">${item.icon}</div>
+        <div class="shop-item-icon shop-item-svg" aria-hidden="true">${iconSvg}</div>
         <div class="shop-item-body">
           <div class="shop-item-head">
             <span class="shop-item-name">${item.label}</span>
-            <span class="shop-item-owned">In bag: ${owned}</span>
+            <span class="shop-item-owned">${item.kind === 'hearts' ? `Hearts: ${owned}` : owned}</span>
           </div>
           <p class="shop-item-desc">${item.desc}</p>
         </div>
-        <button class="shop-buy-btn ${canAfford ? '' : 'disabled'}" type="button">
+        <button class="shop-buy-btn ${canAfford && !heartsFull ? '' : 'disabled'}" type="button">
           <span class="coin-badge coin-badge-sm" aria-hidden="true"></span>
           <span>${item.price}</span>
         </button>
       `;
       const btn = el.querySelector('.shop-buy-btn');
       btn.addEventListener('click', () => {
+        if (heartsFull && item.kind === 'hearts') {
+          showToast('Hearts already full');
+          return;
+        }
         if (canAfford) buyItem(item);
         else AudioEngine.invalid();
       });
@@ -841,14 +960,29 @@ const Game = (() => {
 
   function buyItem(item) {
     if (progress.coins < item.price) return;
-    const invKey = item.type === 'rocket_h' ? 'rocket_h' : item.id === 'extra_moves' ? 'extra_moves' : item.type;
-    progress.coins -= item.price;
-    if (!progress.inventory) progress.inventory = {};
-    progress.inventory[invKey] = (progress.inventory[invKey] || 0) + 1;
+    if (item.kind === 'hearts') {
+      const result = HeartsManager.refill(progress);
+      if (!result.ok) {
+        showToast(result.error || 'Cannot refill');
+        return;
+      }
+    } else {
+      const invKey = item.type === 'rocket_h' ? 'rocket_h' : item.id === 'extra_moves' ? 'extra_moves' : item.type;
+      progress.coins -= item.price;
+      if (!progress.inventory) progress.inventory = {};
+      progress.inventory[invKey] = (progress.inventory[invKey] || 0) + 1;
+      saveProgress();
+      AudioEngine.purchase();
+      renderShop();
+      updateMenuStats();
+      return;
+    }
     saveProgress();
     AudioEngine.purchase();
+    updateHeartsHUD();
     renderShop();
     updateMenuStats();
+    showToast('Hearts refilled!');
   }
 
   function clearPlacementMode() {
@@ -1475,31 +1609,11 @@ const Game = (() => {
         break;
       case 'leaderboard-btn':
         e.preventDefault();
-        if (!AuthManager.isLoggedIn()) { showToast('Sign in to view leaderboard'); return; }
+        if (!AuthManager.isLoggedIn()) { showToast('Sign in for ranks & clubs'); return; }
         AudioEngine.init();
         AudioEngine.click();
+        ranksTab = 'players';
         showScreen('leaderboard');
-        break;
-      case 'club-btn':
-        e.preventDefault();
-        if (!AuthManager.isLoggedIn()) { showToast('Sign in for clubs'); return; }
-        AudioEngine.init();
-        AudioEngine.click();
-        showScreen('club');
-        break;
-      case 'refill-hearts-btn':
-        e.preventDefault();
-        {
-          const result = HeartsManager.refill(progress);
-          if (result.ok) {
-            saveProgress();
-            updateHeartsHUD();
-            updateMenuStats();
-            showToast('Hearts refilled!');
-          } else {
-            showToast(result.error || 'Cannot refill');
-          }
-        }
         break;
       case 'invite-win-btn':
         e.preventDefault();
@@ -1554,7 +1668,12 @@ const Game = (() => {
     $('collections-back')?.addEventListener('click', () => showScreen('menu'));
     $('stickers-back')?.addEventListener('click', () => showScreen('menu'));
     $('leaderboard-back')?.addEventListener('click', () => showScreen('menu'));
-    $('club-back')?.addEventListener('click', () => showScreen('menu'));
+    document.querySelectorAll('.ranks-tab').forEach((tab) => {
+      tab.addEventListener('click', () => {
+        AudioEngine.click();
+        showRanksTab(tab.dataset.ranksTab);
+      });
+    });
     document.querySelectorAll('.settings-tab').forEach((tab) => {
       tab.addEventListener('click', () => {
         AudioEngine.click();
@@ -1779,6 +1898,7 @@ const Game = (() => {
     }
 
     bindUI();
+    try { injectHubIcons(); } catch (err) { console.warn('Hub icons failed:', err); }
 
     try {
       ParticleSystem.init(particlesCanvas);

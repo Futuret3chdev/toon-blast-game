@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/style.css?v=33">
+  <link rel="stylesheet" href="/css/style.css?v=34">
 </head>
 <body>
   <div id="app">
@@ -45,16 +45,16 @@
 
         <div class="hub-grid">
           <button id="level-select-btn" class="hub-tile" type="button">
-            <span class="hub-tile-icon" aria-hidden="true">🗺️</span>
+            <span class="hub-tile-icon" data-hub-icon="map" aria-hidden="true"></span>
             <span class="hub-tile-label">Map</span>
           </button>
           <button id="quests-btn" class="hub-tile" type="button">
-            <span class="hub-tile-icon" aria-hidden="true">📜</span>
+            <span class="hub-tile-icon" data-hub-icon="quests" aria-hidden="true"></span>
             <span class="hub-tile-label">Quests</span>
             <span id="quest-badge" class="hub-badge hidden">0</span>
           </button>
           <button id="shop-btn" class="hub-tile" type="button">
-            <span class="hub-tile-icon" aria-hidden="true">🛒</span>
+            <span class="hub-tile-icon" data-hub-icon="shop" aria-hidden="true"></span>
             <span class="hub-tile-label">Shop</span>
           </button>
           <button id="play-btn" class="hub-play" type="button">
@@ -62,24 +62,16 @@
             <span class="hub-play-level">Level <span id="menu-level">1</span></span>
           </button>
           <button id="collections-btn" class="hub-tile" type="button">
-            <span class="hub-tile-icon" aria-hidden="true">🃏</span>
+            <span class="hub-tile-icon" data-hub-icon="cards" aria-hidden="true"></span>
             <span class="hub-tile-label">Cards</span>
           </button>
           <button id="stickers-btn" class="hub-tile" type="button">
-            <span class="hub-tile-icon" aria-hidden="true">✨</span>
+            <span class="hub-tile-icon" data-hub-icon="stickers" aria-hidden="true"></span>
             <span class="hub-tile-label">Stickers</span>
           </button>
           <button id="leaderboard-btn" class="hub-tile hub-tile-locked" type="button">
-            <span class="hub-tile-icon" aria-hidden="true">🏆</span>
+            <span class="hub-tile-icon" data-hub-icon="ranks" aria-hidden="true"></span>
             <span class="hub-tile-label">Ranks</span>
-          </button>
-          <button id="club-btn" class="hub-tile hub-tile-locked" type="button">
-            <span class="hub-tile-icon" aria-hidden="true">👥</span>
-            <span class="hub-tile-label">Club</span>
-          </button>
-          <button id="refill-hearts-btn" class="hub-tile" type="button">
-            <span class="hub-tile-icon" aria-hidden="true">❤️</span>
-            <span class="hub-tile-label">+Hearts</span>
           </button>
           <button id="menu-telegram-btn" class="hub-tile hub-tile-accent" type="button">
             <span class="hub-tile-icon social-mark social-mark-telegram" aria-hidden="true"></span>
@@ -117,23 +109,27 @@
     <div id="leaderboard-screen" class="screen">
       <header class="screen-header">
         <button class="btn-back" id="leaderboard-back" type="button" aria-label="Back">←</button>
-        <h2 class="header-title">Leaderboard</h2>
+        <h2 class="header-title">Ranks &amp; Clubs</h2>
         <div class="header-end" aria-hidden="true"></div>
       </header>
+      <nav class="ranks-tabs" aria-label="Rank sections">
+        <button type="button" class="ranks-tab active" data-ranks-tab="players" aria-selected="true">Players</button>
+        <button type="button" class="ranks-tab" data-ranks-tab="clubs">Top Clubs</button>
+        <button type="button" class="ranks-tab" data-ranks-tab="myclub">My Club</button>
+      </nav>
       <div class="screen-body scroll-panel">
-        <p class="screen-intro">Sign in to compete on the global ranks.</p>
-        <ol id="leaderboard-list" class="leaderboard-list"></ol>
-      </div>
-    </div>
-
-    <div id="club-screen" class="screen">
-      <header class="screen-header">
-        <button class="btn-back" id="club-back" type="button" aria-label="Back">←</button>
-        <h2 class="header-title">Club</h2>
-        <div class="header-end" aria-hidden="true"></div>
-      </header>
-      <div class="screen-body scroll-panel">
-        <div id="club-panel"></div>
+        <section id="ranks-panel-players" class="ranks-panel active" data-ranks-tab="players">
+          <p class="screen-intro">Sign in to compete on the global player ranks.</p>
+          <ol id="leaderboard-list" class="leaderboard-list"></ol>
+        </section>
+        <section id="ranks-panel-clubs" class="ranks-panel" data-ranks-tab="clubs">
+          <p class="screen-intro">Top 20 clubs ranked by total team stars.</p>
+          <ol id="club-leaderboard-list" class="leaderboard-list club-lb-list"></ol>
+          <div id="club-view-detail" class="club-view-detail hidden"></div>
+        </section>
+        <section id="ranks-panel-myclub" class="ranks-panel" data-ranks-tab="myclub">
+          <div id="club-panel"></div>
+        </section>
       </div>
     </div>
 
@@ -156,8 +152,8 @@
         <div class="header-end" aria-hidden="true"></div>
       </header>
       <div class="screen-body scroll-panel">
-        <p class="screen-intro">Earn stickers from wins and quest rewards.</p>
-        <div id="stickers-grid" class="stickers-grid"></div>
+        <p class="screen-intro">4 collections · 20 stickers each · gold frames are rare!</p>
+        <div id="stickers-collections"></div>
       </div>
     </div>
 
@@ -266,7 +262,7 @@
       </header>
       <div class="screen-body">
         <div id="shop-items" class="shop-list"></div>
-        <p class="shop-hint">Buy power-ups here, then use them from the toolbar during levels.</p>
+        <p class="shop-hint">Buy power-ups and heart refills here. Use power-ups from the level toolbar.</p>
       </div>
     </div>
 
@@ -368,19 +364,20 @@
     <div id="toast" class="toast hidden"></div>
   </div>
 
-  <script src="/js/config.js?v=33"></script>
-  <script src="/js/cards-data.js?v=33"></script>
-  <script src="/js/meta.js?v=33"></script>
-  <script src="/js/mascot.js?v=33"></script>
-  <script src="/js/hearts.js?v=33"></script>
-  <script src="/js/social.js?v=33"></script>
-  <script src="/js/levels.js?v=33"></script>
-  <script src="/js/oauth.js?v=33"></script>
-  <script src="/js/auth.js?v=33"></script>
-  <script src="/js/audio.js?v=33"></script>
-  <script src="/js/particles.js?v=33"></script>
-  <script src="/js/board.js?v=33"></script>
-  <script src="/js/pwa.js?v=33"></script>
-  <script src="/js/game.js?v=33"></script>
+  <script src="/js/config.js?v=34"></script>
+  <script src="/js/icons.js?v=34"></script>
+  <script src="/js/cards-data.js?v=34"></script>
+  <script src="/js/meta.js?v=34"></script>
+  <script src="/js/mascot.js?v=34"></script>
+  <script src="/js/hearts.js?v=34"></script>
+  <script src="/js/social.js?v=34"></script>
+  <script src="/js/levels.js?v=34"></script>
+  <script src="/js/oauth.js?v=34"></script>
+  <script src="/js/auth.js?v=34"></script>
+  <script src="/js/audio.js?v=34"></script>
+  <script src="/js/particles.js?v=34"></script>
+  <script src="/js/board.js?v=34"></script>
+  <script src="/js/pwa.js?v=34"></script>
+  <script src="/js/game.js?v=34"></script>
 </body>
 </html>
