@@ -40,7 +40,10 @@ const Game = (() => {
     level: 'level-screen',
     game: 'game-screen',
     shop: 'shop-screen',
-    settings: 'settings-screen'
+    settings: 'settings-screen',
+    quests: 'quests-screen',
+    collections: 'collections-screen',
+    stickers: 'stickers-screen'
   };
 
   function ensureProgress() {
@@ -59,8 +62,42 @@ const Game = (() => {
 
   function reloadProgress() {
     progress = AuthManager.loadProgress();
+    MetaManager.ensureMeta(progress);
     updateMenuStats();
     updateAuthUI();
+    updateQuestBadge();
+  }
+
+  function trackMetaStat(stat, amount = 1) {
+    if (!AuthManager.isLoggedIn()) return;
+    MetaManager.trackStat(progress, stat, amount);
+    MetaManager.checkQuests(progress);
+    saveProgress();
+    updateQuestBadge();
+  }
+
+  function updateQuestBadge() {
+    const badge = $('quest-badge');
+    if (!badge) return;
+    const count = AuthManager.isLoggedIn()
+      ? MetaManager.claimableQuestCount(progress)
+      : QUESTS.length;
+    if (AuthManager.isLoggedIn() && count > 0) {
+      badge.textContent = String(count);
+      badge.classList.remove('hidden');
+    } else if (!AuthManager.isLoggedIn()) {
+      badge.textContent = '!';
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
+  }
+
+  function updateMascot(moves) {
+    const state = board
+      ? MetaManager.mascotFromMoves(moves, board.moves + moves)
+      : 'idle';
+    MetaManager.setMascotState($('game-mascot'), state);
   }
 
   function saveProgress() {
@@ -177,6 +214,10 @@ const Game = (() => {
       if (name === 'shop') renderShop();
       if (name === 'level') buildLevelMap();
       if (name === 'settings') refreshSettings();
+      if (name === 'quests') renderQuests();
+      if (name === 'collections') renderCollections();
+      if (name === 'stickers') renderStickers();
+      if (name === 'menu') MetaManager.setMascotState($('menu-mascot'), 'idle');
       ensureProgress();
       updateMenuStats();
     } catch (err) {
@@ -185,9 +226,12 @@ const Game = (() => {
   }
 
   function refreshSettings() {
+    const activeTab = document.querySelector('.settings-tab.active')?.dataset.settingsTab || 'sound';
+    showSettingsTab(activeTab);
     renderProfilePickers();
     updateAuthUI();
     updateInviteSection();
+    updateMuteButton();
     AuthManager.renderGoogleButton($('google-btn-container'));
     AuthManager.renderTelegramWidget($('telegram-login-container'));
   }
@@ -259,14 +303,119 @@ const Game = (() => {
     if (shareBtn) shareBtn.style.display = navigator.share ? '' : 'none';
   }
 
-  function openSettings(scrollToInvite = false) {
+  function showSettingsTab(tab = 'sound') {
+    document.querySelectorAll('.settings-tab').forEach((el) => {
+      const active = el.dataset.settingsTab === tab;
+      el.classList.toggle('active', active);
+      el.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    document.querySelectorAll('.settings-panel[data-settings-tab]').forEach((el) => {
+      el.classList.toggle('active', el.dataset.settingsTab === tab);
+    });
+  }
+
+  function openSettings(tab = 'sound') {
     AudioEngine.init();
     AudioEngine.click();
     showScreen('settings');
-    if (scrollToInvite) {
+    showSettingsTab(tab);
+    if (tab === 'support') {
       requestAnimationFrame(() => {
-        $('invite-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        $('settings-panel-support')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
+    }
+  }
+
+  function renderQuests() {
+    const list = $('quests-list');
+    if (!list) return;
+    const loggedIn = AuthManager.isLoggedIn();
+    const quests = loggedIn
+      ? MetaManager.getQuestList(progress)
+      : QUESTS.map(q => ({ ...q, progress: 0, current: 0, completed: false }));
+
+    list.innerHTML = quests.map((q) => {
+      const pct = Math.round((q.current / q.target) * 100);
+      const done = q.completed;
+      return `
+        <article class="quest-card${done ? ' completed' : ''}">
+          <div class="quest-icon" aria-hidden="true">${q.icon}</div>
+          <div class="quest-body">
+            <h3>${q.title}</h3>
+            <p>${q.desc}</p>
+            <div class="quest-bar"><span style="width:${Math.min(100, pct)}%"></span></div>
+            <span class="quest-progress">${Math.min(q.current, q.target)} / ${q.target}</span>
+            ${done ? '<span class="quest-done">Complete!</span>' : ''}
+            ${q.codeReward ? `<span class="quest-code-reward">Code card: ${q.codeReward.code}</span>` : ''}
+          </div>
+        </article>
+      `;
+    }).join('');
+
+    if (!loggedIn) {
+      list.insertAdjacentHTML('afterbegin', '<p class="quest-guest-hint">Sign in to track quests and earn code cards.</p>');
+    }
+  }
+
+  function renderCollections() {
+    const grid = $('collections-grid');
+    if (!grid) return;
+    const meta = MetaManager.ensureMeta(progress);
+    const allCards = [...NORMAL_CARDS, ...CODE_CARDS];
+
+    grid.innerHTML = allCards.map((card) => {
+      const full = CARD_BY_ID[card.id];
+      const count = meta.cards[card.id] || 0;
+      return MetaManager.renderCardHTML(full, { owned: count > 0, count });
+    }).join('');
+  }
+
+  function renderStickers() {
+    const grid = $('stickers-grid');
+    if (!grid) return;
+    const meta = MetaManager.ensureMeta(progress);
+
+    grid.innerHTML = STICKERS.map((sticker) => {
+      const count = meta.stickers[sticker.id] || 0;
+      const owned = count > 0;
+      return `
+        <article class="sticker-card${owned ? '' : ' locked'}">
+          <div class="sticker-art">${sticker.emoji}</div>
+          <div class="sticker-name">${sticker.name}</div>
+          ${count > 1 ? `<span class="sticker-count">×${count}</span>` : ''}
+        </article>
+      `;
+    }).join('');
+  }
+
+  function showWinRewards(rewards, loggedIn) {
+    const wrap = $('win-reward');
+    const cardEl = $('win-card-preview');
+    const stickerEl = $('win-sticker-preview');
+    if (!wrap || !cardEl) return;
+
+    if (!rewards) {
+      wrap.classList.add('hidden');
+      return;
+    }
+
+    wrap.classList.remove('hidden');
+    cardEl.innerHTML = MetaManager.renderCardHTML(
+      { ...rewards.card, type: 'normal' },
+      { owned: true }
+    );
+    if (rewards.sticker && stickerEl) {
+      stickerEl.textContent = `${rewards.stickerIsNew ? 'New sticker: ' : 'Sticker: '}${rewards.sticker.emoji} ${rewards.sticker.name}`;
+      stickerEl.classList.remove('hidden');
+    } else if (stickerEl) {
+      stickerEl.classList.add('hidden');
+    }
+
+    const label = $('win-reward-label');
+    if (label) {
+      label.textContent = loggedIn
+        ? (rewards.cardIsNew ? 'New card!' : 'Card collected!')
+        : 'Card earned — sign in to keep it!';
     }
   }
 
@@ -284,7 +433,16 @@ const Game = (() => {
     if ($('total-stars')) $('total-stars').textContent = progress.totalStars;
     if ($('menu-coins')) $('menu-coins').textContent = progress.coins;
     if ($('shop-coins')) $('shop-coins').textContent = progress.coins;
+    const meta = MetaManager.ensureMeta(progress);
+    if ($('menu-card-count')) {
+      $('menu-card-count').textContent = MetaManager.uniqueCardCount(meta);
+    }
+    if ($('menu-sticker-count')) {
+      const stickerTotal = Object.values(meta.stickers).reduce((a, b) => a + b, 0);
+      $('menu-sticker-count').textContent = stickerTotal;
+    }
     updateInventoryHUD();
+    updateQuestBadge();
   }
 
   function updateInventoryHUD() {
@@ -752,6 +910,11 @@ const Game = (() => {
     onMovesChanged(moves) {
       $('moves-count').textContent = moves;
       $('moves-count').classList.toggle('low', moves <= 3);
+      updateMascot(moves);
+    },
+
+    onStatEvent(stat, amount = 1) {
+      trackMetaStat(stat, amount);
     },
 
     onGoalUpdate(type, remaining) {
@@ -773,6 +936,9 @@ const Game = (() => {
       $('combo-text').textContent = `COMBO x${level}!`;
       display.classList.remove('hidden');
       setTimeout(() => display.classList.add('hidden'), 800);
+      trackMetaStat('combos', 1);
+      MetaManager.setMascotState($('game-mascot'), 'happy');
+      setTimeout(() => updateMascot(board?.moves ?? 0), 600);
     },
 
     onHint(cells) {
@@ -789,6 +955,9 @@ const Game = (() => {
 
     onWin(score, movesLeft) {
       AudioEngine.win();
+      MetaManager.setMascotState($('game-mascot'), 'happy');
+      MetaManager.setMascotState($('menu-mascot'), 'happy');
+
       const stars = calcStars(movesLeft);
       const prev = progress.stars[board.levelNumber] || 0;
       if (stars > prev) {
@@ -800,14 +969,31 @@ const Game = (() => {
         progress.maxLevel = board.levelNumber + 1;
       }
       const coinReward = loggedIn ? (50 + stars * 25 + movesLeft * 5) : 0;
+
+      let rewards = null;
+      let questCompletions = [];
       if (loggedIn) {
         progress.coins += coinReward;
+        trackMetaStat('levelsWon', 1);
+        rewards = MetaManager.awardWinRewards(progress, board.levelNumber);
+        questCompletions = MetaManager.checkQuests(progress);
         saveProgress();
+      } else {
+        const preview = JSON.parse(JSON.stringify(progress));
+        MetaManager.ensureMeta(preview);
+        rewards = MetaManager.awardWinRewards(preview, board.levelNumber);
       }
+
       $('win-coins').textContent = loggedIn
         ? `+${coinReward} coins`
         : 'Sign in to save progress & unlock levels!';
+      showWinRewards(rewards, loggedIn);
       updateMenuStats();
+
+      if (questCompletions.length) {
+        const names = questCompletions.map(q => q.title).join(', ');
+        setTimeout(() => showToast(`Quest complete: ${names}!`), 400);
+      }
 
       $('win-score').textContent = score;
       $('win-stars').textContent = renderStarRow(stars);
@@ -817,6 +1003,7 @@ const Game = (() => {
 
     onLose() {
       AudioEngine.lose();
+      MetaManager.setMascotState($('game-mascot'), 'sad');
       $('lose-modal').classList.remove('hidden');
     }
   };
@@ -860,18 +1047,26 @@ const Game = (() => {
     renderGoals();
     updateHUD();
     board.resetHintTimer();
+    MetaManager.setMascotState($('game-mascot'), 'idle');
+    updateMascot(board.moves);
   }
 
   function updateMuteButton() {
+    const sfxOn = AudioEngine.isEnabled();
+    const musicOn = AudioEngine.isMusicEnabled();
     const btn = $('mute-btn');
     if (btn) {
-      btn.dataset.on = AudioEngine.isEnabled() ? 'true' : 'false';
-      btn.setAttribute('aria-pressed', AudioEngine.isEnabled() ? 'false' : 'true');
+      btn.dataset.on = sfxOn ? 'true' : 'false';
+      btn.setAttribute('aria-pressed', sfxOn ? 'false' : 'true');
+      const state = btn.querySelector('.sound-toggle-state');
+      if (state) state.textContent = sfxOn ? 'On' : 'Off';
     }
     const musicBtn = $('music-btn');
     if (musicBtn) {
-      musicBtn.dataset.on = AudioEngine.isMusicEnabled() ? 'true' : 'false';
-      musicBtn.setAttribute('aria-pressed', AudioEngine.isMusicEnabled() ? 'false' : 'true');
+      musicBtn.dataset.on = musicOn ? 'true' : 'false';
+      musicBtn.setAttribute('aria-pressed', musicOn ? 'false' : 'true');
+      const state = musicBtn.querySelector('.sound-toggle-state');
+      if (state) state.textContent = musicOn ? 'On' : 'Off';
     }
   }
 
@@ -888,15 +1083,32 @@ const Game = (() => {
         e.preventDefault();
         openShop();
         break;
-      case 'settings-btn':
-      case 'profile-btn':
+      case 'settings-cog-btn':
         e.preventDefault();
-        openSettings();
+        openSettings('sound');
+        break;
+      case 'quests-btn':
+        e.preventDefault();
+        AudioEngine.init();
+        AudioEngine.click();
+        showScreen('quests');
+        break;
+      case 'collections-btn':
+        e.preventDefault();
+        AudioEngine.init();
+        AudioEngine.click();
+        showScreen('collections');
+        break;
+      case 'stickers-btn':
+        e.preventDefault();
+        AudioEngine.init();
+        AudioEngine.click();
+        showScreen('stickers');
         break;
       case 'invite-win-btn':
         e.preventDefault();
         $('win-modal')?.classList.add('hidden');
-        openSettings(true);
+        openSettings('account');
         break;
       default:
         break;
@@ -942,6 +1154,15 @@ const Game = (() => {
     });
 
     $('settings-back')?.addEventListener('click', () => showScreen('menu'));
+    $('quests-back')?.addEventListener('click', () => showScreen('menu'));
+    $('collections-back')?.addEventListener('click', () => showScreen('menu'));
+    $('stickers-back')?.addEventListener('click', () => showScreen('menu'));
+    document.querySelectorAll('.settings-tab').forEach((tab) => {
+      tab.addEventListener('click', () => {
+        AudioEngine.click();
+        showSettingsTab(tab.dataset.settingsTab);
+      });
+    });
     $('login-google')?.addEventListener('click', async () => {
       const result = await AuthManager.signInGoogle();
       await handleAuthResult(result, 'Google');
@@ -1112,7 +1333,7 @@ const Game = (() => {
 
     $('invite-win-btn')?.addEventListener('click', () => {
       $('win-modal')?.classList.add('hidden');
-      openSettings(true);
+      openSettings('account');
     });
 
     $('inv-bomb')?.addEventListener('click', () => startPlacement('bomb'));
@@ -1175,6 +1396,8 @@ const Game = (() => {
     try { renderProfilePickers(); } catch (err) { console.warn('Profile pickers failed:', err); }
     try { updateInviteSection(); } catch (err) { console.warn('Invite section failed:', err); }
     updateAuthUI();
+    MetaManager.setMascotState($('menu-mascot'), 'idle');
+    showSettingsTab('sound');
 
     if (AudioEngine.isMusicEnabled()) {
       AudioEngine.init();

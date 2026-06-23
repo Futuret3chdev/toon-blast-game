@@ -9,7 +9,13 @@ const AuthManager = (() => {
     stars: {},
     totalStars: 0,
     coins: 500,
-    inventory: { bomb: 0, rocket_h: 0, disco: 0, extra_moves: 0 }
+    inventory: { bomb: 0, rocket_h: 0, disco: 0, extra_moves: 0 },
+    meta: {
+      cards: {},
+      stickers: {},
+      quests: {},
+      stats: { levelsWon: 0, boxesPopped: 0, combos: 0, powerUpsUsed: 0 }
+    }
   };
 
   const DEFAULT_PROFILE = {
@@ -77,6 +83,12 @@ const AuthManager = (() => {
       ...saved,
       stars: { ...DEFAULT_PROGRESS.stars, ...(saved.stars || {}) },
       inventory: { ...DEFAULT_PROGRESS.inventory, ...(saved.inventory || {}) },
+      meta: {
+        cards: { ...(saved.meta?.cards || {}) },
+        stickers: { ...(saved.meta?.stickers || {}) },
+        quests: { ...(saved.meta?.quests || {}) },
+        stats: { ...DEFAULT_PROGRESS.meta.stats, ...(saved.meta?.stats || {}) }
+      },
       maxLevel: Math.max(1, Math.min(typeof LEVELS !== 'undefined' ? LEVELS.length : 50, saved.maxLevel || 1)),
       coins: typeof saved.coins === 'number' ? saved.coins : DEFAULT_PROGRESS.coins,
       totalStars: saved.totalStars || 0
@@ -95,6 +107,11 @@ const AuthManager = (() => {
     });
     Object.keys(other.inventory).forEach((k) => {
       merged.inventory[k] = Math.max(merged.inventory[k] || 0, other.inventory[k] || 0);
+    });
+    merged.meta.cards = { ...merged.meta.cards, ...other.meta.cards };
+    merged.meta.stickers = { ...merged.meta.stickers, ...other.meta.stickers };
+    Object.keys(other.meta.stats).forEach((k) => {
+      merged.meta.stats[k] = Math.max(merged.meta.stats[k] || 0, other.meta.stats[k] || 0);
     });
     return merged;
   }

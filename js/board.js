@@ -191,6 +191,7 @@ class GameBoard {
   async destroyBlock(row, col, fast = false) {
     const block = this.getBlock(row, col);
     if (!block) return;
+    if (block.type === 'box') this.callbacks.onStatEvent?.('boxesPopped', 1);
     this.updateGoals(block.type === 'vase_cracked' ? 'vase' : block.type);
     await this.callbacks.onBlockDestroy(row, col, block, fast);
     this.setBlock(row, col, null);
@@ -213,6 +214,7 @@ class GameBoard {
 
   async activatePowerUp(row, col, block, useMove) {
     this.busy = true;
+    this.callbacks.onStatEvent?.('powerUpsUsed', 1);
     this.comboChain++;
     if (this.comboChain > 1) {
       this.callbacks.onCombo(this.comboChain);

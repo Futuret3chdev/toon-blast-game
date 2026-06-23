@@ -17,45 +17,73 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/style.css?v=29">
+  <link rel="stylesheet" href="/css/style.css?v=30">
 </head>
 <body>
   <div id="app">
     <div id="menu-screen" class="screen active">
       <div class="menu-bg"></div>
       <header class="menu-top-bar">
-        <button id="profile-btn" class="top-pill" type="button" title="Settings" aria-label="Settings">
+        <button id="settings-cog-btn" class="top-pill cog-btn" type="button" title="Settings" aria-label="Settings">
           <svg class="top-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32 1.41-1.41"/></svg>
         </button>
-        <div class="menu-top-actions">
-          <button id="music-btn" class="top-pill" type="button" title="Toggle music" aria-label="Music" data-on="false">
-            <svg class="top-icon icon-on" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
-            <svg class="top-icon icon-off" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25L19.73 21 21 19.73l-9-9L4.27 3z"/></svg>
-          </button>
-          <button id="mute-btn" class="top-pill" type="button" title="Toggle sound" aria-label="Sound" data-on="true">
-            <svg class="top-icon icon-on" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.06A4.494 4.494 0 0 0 16.5 12z"/></svg>
-            <svg class="top-icon icon-off" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.5 12A4.494 4.494 0 0 0 14 7.97v2.21l2.45 2.45c-.03-.2-.05-.41-.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0 0 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25L19.73 21 21 19.73l-9-9L4.27 3z"/></svg>
-          </button>
+        <div class="menu-top-stats">
+          <span class="hub-stat"><span aria-hidden="true">⭐</span> <span id="total-stars">0</span></span>
+          <span class="hub-stat"><span aria-hidden="true">🪙</span> <span id="menu-coins">500</span></span>
         </div>
       </header>
-      <div class="menu-content">
-        <h1 class="menu-title">MTE POP</h1>
-        <p class="tagline">Tap matching blocks to pop!</p>
+      <div class="menu-hub">
+        <div class="menu-hero">
+          <div id="menu-mascot" class="mascot mascot-lg" data-state="idle" aria-label="Blip the mascot">
+            <div class="mascot-body"></div>
+            <div class="mascot-face">
+              <span class="mascot-eye left"></span>
+              <span class="mascot-eye right"></span>
+              <span class="mascot-mouth"></span>
+              <span class="mascot-blush left"></span>
+              <span class="mascot-blush right"></span>
+            </div>
+          </div>
+          <h1 class="menu-title">MTE POP</h1>
+          <p class="tagline">Tap, pop &amp; collect!</p>
+        </div>
 
-        <button id="play-btn" class="btn-primary" type="button">Play Level <span id="menu-level">1</span></button>
-        <button id="level-select-btn" class="btn-secondary" type="button">Level Map</button>
-        <button id="shop-btn" class="btn-secondary" type="button">Shop</button>
-        <button id="settings-btn" class="btn-secondary" type="button">Settings</button>
-
-        <button id="menu-telegram-btn" class="btn-telegram-menu" type="button">
-          <span class="social-mark social-mark-telegram" aria-hidden="true"></span>
-          <span>Sign in with Telegram</span>
-        </button>
+        <div class="hub-grid">
+          <button id="level-select-btn" class="hub-tile" type="button">
+            <span class="hub-tile-icon" aria-hidden="true">🗺️</span>
+            <span class="hub-tile-label">Map</span>
+          </button>
+          <button id="quests-btn" class="hub-tile" type="button">
+            <span class="hub-tile-icon" aria-hidden="true">📜</span>
+            <span class="hub-tile-label">Quests</span>
+            <span id="quest-badge" class="hub-badge hidden">0</span>
+          </button>
+          <button id="shop-btn" class="hub-tile" type="button">
+            <span class="hub-tile-icon" aria-hidden="true">🛒</span>
+            <span class="hub-tile-label">Shop</span>
+          </button>
+          <button id="play-btn" class="hub-play" type="button">
+            <span class="hub-play-label">PLAY</span>
+            <span class="hub-play-level">Level <span id="menu-level">1</span></span>
+          </button>
+          <button id="collections-btn" class="hub-tile" type="button">
+            <span class="hub-tile-icon" aria-hidden="true">🃏</span>
+            <span class="hub-tile-label">Cards</span>
+          </button>
+          <button id="stickers-btn" class="hub-tile" type="button">
+            <span class="hub-tile-icon" aria-hidden="true">✨</span>
+            <span class="hub-tile-label">Stickers</span>
+          </button>
+          <button id="menu-telegram-btn" class="hub-tile hub-tile-accent" type="button">
+            <span class="hub-tile-icon social-mark social-mark-telegram" aria-hidden="true"></span>
+            <span class="hub-tile-label">Sign In</span>
+          </button>
+        </div>
 
         <div class="menu-stats">
-          <div class="stat"><span class="stat-label">Stars</span><span id="total-stars" class="stat-value">0</span></div>
           <div class="stat"><span class="stat-label">Level</span><span id="max-level" class="stat-value">1</span></div>
-          <div class="stat"><span class="stat-label">Coins</span><span id="menu-coins" class="stat-value">500</span></div>
+          <div class="stat"><span class="stat-label">Cards</span><span id="menu-card-count" class="stat-value">0</span></div>
+          <div class="stat"><span class="stat-label">Stickers</span><span id="menu-sticker-count" class="stat-value">0</span></div>
         </div>
 
         <div class="brand-panel">
@@ -67,6 +95,42 @@
       </div>
     </div>
 
+    <div id="quests-screen" class="screen">
+      <header class="screen-header">
+        <button class="btn-back" id="quests-back" type="button" aria-label="Back">←</button>
+        <h2 class="header-title">Side Quests</h2>
+        <div class="header-end" aria-hidden="true"></div>
+      </header>
+      <div class="screen-body">
+        <p class="screen-intro">Complete quests for coins, stickers &amp; rare code cards!</p>
+        <div id="quests-list" class="quests-list"></div>
+      </div>
+    </div>
+
+    <div id="collections-screen" class="screen">
+      <header class="screen-header">
+        <button class="btn-back" id="collections-back" type="button" aria-label="Back">←</button>
+        <h2 class="header-title">Card Collection</h2>
+        <div class="header-end" aria-hidden="true"></div>
+      </header>
+      <div class="screen-body">
+        <p class="screen-intro">Win levels to earn cards. Quests may drop special code cards.</p>
+        <div id="collections-grid" class="collections-grid"></div>
+      </div>
+    </div>
+
+    <div id="stickers-screen" class="screen">
+      <header class="screen-header">
+        <button class="btn-back" id="stickers-back" type="button" aria-label="Back">←</button>
+        <h2 class="header-title">Stickers</h2>
+        <div class="header-end" aria-hidden="true"></div>
+      </header>
+      <div class="screen-body">
+        <p class="screen-intro">Earn stickers from wins and quest rewards.</p>
+        <div id="stickers-grid" class="stickers-grid"></div>
+      </div>
+    </div>
+
     <div id="settings-screen" class="screen">
       <header class="screen-header">
         <button class="btn-back" id="settings-back" type="button" aria-label="Back">←</button>
@@ -74,7 +138,28 @@
         <div class="header-end" aria-hidden="true"></div>
       </header>
       <div class="settings-body">
-        <section class="settings-card profile-card-wrap">
+        <nav class="settings-tabs" aria-label="Settings sections">
+          <button type="button" class="settings-tab active" data-settings-tab="sound" aria-selected="true">🔊 Sound</button>
+          <button type="button" class="settings-tab" data-settings-tab="account">👤 Account</button>
+          <button type="button" class="settings-tab" data-settings-tab="support">💬 Support</button>
+        </nav>
+
+        <section id="settings-panel-sound" class="settings-panel settings-card" data-settings-tab="sound">
+          <h3 class="card-title">Sound</h3>
+          <p class="card-sub">Music and sound effects</p>
+          <div class="sound-toggles">
+            <button id="music-btn" class="sound-toggle" type="button" data-on="false">
+              <span class="sound-toggle-label">Music</span>
+              <span class="sound-toggle-state">Off</span>
+            </button>
+            <button id="mute-btn" class="sound-toggle" type="button" data-on="true">
+              <span class="sound-toggle-label">Sound FX</span>
+              <span class="sound-toggle-state">On</span>
+            </button>
+          </div>
+        </section>
+
+        <section id="settings-panel-account" class="settings-panel settings-card profile-card-wrap" data-settings-tab="account">
           <div id="profile-card" class="profile-card">
             <div id="profile-frame" class="profile-frame" style="--frame-color:#6c5ce7">
               <span id="profile-avatar" class="profile-avatar">P</span>
@@ -84,7 +169,7 @@
           </div>
         </section>
 
-        <section id="customize-section" class="settings-card">
+        <section id="customize-section" class="settings-panel settings-card" data-settings-tab="account">
           <h3 class="card-title">Profile</h3>
           <label class="field-label" for="profile-name-input">Display Name</label>
           <input id="profile-name-input" class="field-input" type="text" maxlength="20" placeholder="Your name">
@@ -95,7 +180,7 @@
           <button id="save-profile-btn" class="btn-primary btn-block" type="button">Save Profile</button>
         </section>
 
-        <section id="auth-section" class="settings-card">
+        <section id="auth-section" class="settings-panel settings-card" data-settings-tab="account">
           <h3 class="card-title">Sign In or Sign Up</h3>
           <p class="card-sub">Create an account or sign in — progress syncs across devices</p>
           <div class="social-login">
@@ -125,9 +210,12 @@
           <button id="logout-btn" class="btn-secondary btn-block hidden" type="button">Sign Out</button>
         </section>
 
-        <section id="invite-section" class="settings-card">
-          <h3 class="card-title">Invite Friends</h3>
-          <p class="card-sub">Tap the link to share or copy</p>
+        <section id="settings-panel-support" class="settings-panel settings-card" data-settings-tab="support">
+          <h3 class="card-title">Chat Support</h3>
+          <p class="card-sub">Need help? Message us on Telegram — we usually reply fast.</p>
+          <a id="support-chat-link" class="btn-primary btn-block support-chat-btn" href="https://t.me/mod_futuret3ch_bot" target="_blank" rel="noopener noreferrer">Open Chat Support</a>
+          <h3 class="card-title" style="margin-top:1.25rem">Invite Friends</h3>
+          <p class="card-sub">Share MTE POP with friends</p>
           <a id="invite-link" class="invite-link" href="https://mte-pop.vercel.app" rel="noopener noreferrer">https://mte-pop.vercel.app</a>
           <div class="invite-actions">
             <button id="invite-copy-btn" class="btn-secondary" type="button">Copy Link</button>
@@ -164,6 +252,14 @@
     <div id="game-screen" class="screen">
       <div class="game-hud">
         <button class="btn-back" id="game-back" type="button" aria-label="Back">←</button>
+        <div id="game-mascot" class="mascot mascot-sm" data-state="idle" aria-label="Blip the mascot">
+          <div class="mascot-body"></div>
+          <div class="mascot-face">
+            <span class="mascot-eye left"></span>
+            <span class="mascot-eye right"></span>
+            <span class="mascot-mouth"></span>
+          </div>
+        </div>
         <div class="hud-level">Level <span id="hud-level">1</span></div>
         <div class="hud-moves">
           <span class="moves-label">Moves</span>
@@ -191,6 +287,11 @@
         <h2>Level Complete!</h2>
         <p class="modal-score">Score: <span id="win-score">0</span></p>
         <p class="modal-coins" id="win-coins">+50 coins</p>
+        <div id="win-reward" class="win-reward hidden">
+          <p id="win-reward-label" class="win-reward-label">New card!</p>
+          <div id="win-card-preview" class="win-card-preview"></div>
+          <p id="win-sticker-preview" class="win-sticker-preview hidden"></p>
+        </div>
         <button id="next-level-btn" class="btn-primary" type="button">Next Level</button>
         <button id="invite-win-btn" class="btn-secondary" type="button">Settings</button>
         <button id="win-menu-btn" class="btn-secondary" type="button">Menu</button>
@@ -236,14 +337,16 @@
     <div id="toast" class="toast hidden"></div>
   </div>
 
-  <script src="/js/config.js?v=29"></script>
-  <script src="/js/levels.js?v=29"></script>
-  <script src="/js/oauth.js?v=29"></script>
-  <script src="/js/auth.js?v=29"></script>
-  <script src="/js/audio.js?v=29"></script>
-  <script src="/js/particles.js?v=29"></script>
-  <script src="/js/board.js?v=29"></script>
-  <script src="/js/pwa.js?v=29"></script>
-  <script src="/js/game.js?v=29"></script>
+  <script src="/js/config.js?v=30"></script>
+  <script src="/js/cards-data.js?v=30"></script>
+  <script src="/js/meta.js?v=30"></script>
+  <script src="/js/levels.js?v=30"></script>
+  <script src="/js/oauth.js?v=30"></script>
+  <script src="/js/auth.js?v=30"></script>
+  <script src="/js/audio.js?v=30"></script>
+  <script src="/js/particles.js?v=30"></script>
+  <script src="/js/board.js?v=30"></script>
+  <script src="/js/pwa.js?v=30"></script>
+  <script src="/js/game.js?v=30"></script>
 </body>
 </html>
